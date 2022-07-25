@@ -1,0 +1,5 @@
+{
+  "namespace": "gcp",
+  "provider": "zabbix",
+  "version": "1.1.0"
+}
