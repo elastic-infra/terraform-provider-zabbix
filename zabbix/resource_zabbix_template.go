@@ -95,7 +95,7 @@ func createTemplateObj(d *schema.ResourceData, api *zabbix.API) (*zabbix.Templat
 	if err != nil {
 		return nil, err
 	}
-	template.Groups = make([]zabbix.HostGroup, len(hostGroupIDs))
+	template.Groups = make([]zabbix.TemplateGroup, len(hostGroupIDs))
 	for i, ID := range hostGroupIDs {
 		template.Groups[i].GroupID = ID.GroupID
 	}
