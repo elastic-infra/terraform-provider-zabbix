@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/claranet/go-zabbix-api"
+	zapi "github.com/claranet/go-zabbix-api"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/hashcode"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
@@ -703,7 +704,7 @@ func createActionObject(d *schema.ResourceData, api *zabbix.API) (*zabbix.Action
 		Name:        d.Get("name").(string),
 		Status:      status,
 		Filter: zabbix.ActionFilter{
-			Conditions:     createActionConditionObject(d.Get("condition").([]interface{})),
+			Conditions:     createActionConditionObject(d.Get("condition").([]interface{}), api),
 			EvaluationType: StringActionEvaluationTypeMap[d.Get("calculation").(string)],
 			Formula:        d.Get("formula").(string),
 		},
@@ -725,14 +726,14 @@ func createActionObject(d *schema.ResourceData, api *zabbix.API) (*zabbix.Action
 }
 
 // FIXME: Several type need to convert from value to ID
-func createActionConditionObject(lst []interface{}) (items zabbix.ActionFilterConditions) {
+func createActionConditionObject(lst []interface{}, api *zabbix.API) (items zabbix.ActionFilterConditions) {
 	for _, v := range lst {
 		m := v.(map[string]interface{})
 
 		item := zabbix.ActionFilterCondition{
 			ConditionID:   m["condition_id"].(string),
 			ConditionType: StringActionConditionTypeMap[m["type"].(string)],
-			Value:         convertValuetoId(m["value"].(string), m["type"].(string)),
+			Value:         convertValuetoId(m["value"].(string), m["type"].(string), api),
 			//Value2:        m["value2"].(string),
 			FormulaID: m["formula_id"].(string),
 			Operator:  StringActionFilterConditionOperatorMap[m["operator"].(string)],
@@ -743,10 +744,24 @@ func createActionConditionObject(lst []interface{}) (items zabbix.ActionFilterCo
 	return
 }
 
-func convertValuetoId(value string, condition string) string {
+func convertValuetoId(value string, condition string, api *zabbix.API) string {
 
 	if condition == "host_template" {
-		value = ""
+		params := map[string]interface{}{
+			"output": "extend",
+			"filter": map[string]interface{}{
+				"name": value,
+			},
+		}
+		templates, _ := api.TemplatesGet(params)
+		template := zapi.Template{}
+		if len(templates) == 1 {
+			template = templates[0]
+		} else {
+			// return same value to fail
+			return value
+		}
+		value = template.TemplateID
 	}
 
 	return value
