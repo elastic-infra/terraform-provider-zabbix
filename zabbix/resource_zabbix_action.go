@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/claranet/go-zabbix-api"
-	zapi "github.com/claranet/go-zabbix-api"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/hashcode"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
@@ -754,7 +753,7 @@ func convertValuetoId(value string, condition string, api *zabbix.API) string {
 			},
 		}
 		templates, _ := api.TemplatesGet(params)
-		template := zapi.Template{}
+		template := zabbix.Template{}
 		if len(templates) == 1 {
 			template = templates[0]
 		} else {
