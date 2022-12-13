@@ -154,7 +154,7 @@ func createTriggerObj(d *schema.ResourceData) zabbix.Trigger {
 		Description:  d.Get("description").(string),
 		Expression:   d.Get("expression").(string),
 		Comments:     d.Get("comment").(string),
-		Priority:     zabbix.SeverityType(d.Get("priority").(int)),
+		Priority:     int(zabbix.SeverityType(d.Get("priority").(int))),
 		Status:       zabbix.StatusType(d.Get("status").(int)),
 		Dependencies: createTriggerDependencies(d),
 	}

@@ -3,16 +3,23 @@ PKG_NAME=zabbix
 DIR=~/.terraform.d/plugins/terraform.local/local/zabbix/1.0.0/linux_amd64/
 CDIR=citizen/
 
+HOSTNAME=terraform.local
+NAMESPACE=local
+NAME=zabbix
+BINARY=terraform-provider-${NAME}
+VERSION=1.0.0
+OS_ARCH=linux_amd64
+
+
 default: build
 
 
 build:
-	go install
+	go build -o ${BINARY}
 
-install:
-	mkdir -vp $(DIR)
-	go build -o $(DIR)/terraform-provider-zabbix_v1.0.0
-	chmod +x $(DIR)/terraform-provider-zabbix_v1.0.0
+install: build
+	mkdir -p ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
+	mv ${BINARY} ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
 
 uninstall:
 	@rm -vf $(DIR)/terraform-provider-zabbix_v1.0.0
