@@ -761,6 +761,22 @@ func convertValuetoId(value string, condition string, api *zabbix.API) string {
 			return value
 		}
 		value = template.TemplateID
+	} else if condition == "mediatype" {
+		params := map[string]interface{}{
+			"output": "extend",
+			"filter": map[string]interface{}{
+				"name": value,
+			},
+		}
+		mediatypeList, _ := api.MediaGet(params)
+		mediatype := zabbix.MediaType{}
+		if len(mediatypeList) == 1 {
+			mediatype = mediatypeList[0]
+		} else {
+			// return same value to fail
+			return value
+		}
+		value = mediatype.MediaID
 	}
 
 	return value
@@ -1046,9 +1062,10 @@ func createActionOperationMessage(id string, lst []interface{}, api *zabbix.API)
 	msg = &zabbix.ActionOperationMessage{
 		OperationID:    id,
 		DefaultMessage: defMsg,
-		MediaTypeID:    m["media_type_id"].(string),
-		Message:        m["message"].(string),
-		Subject:        m["subject"].(string),
+		MediaTypeID:    convertValuetoId(m["media_type_id"].(string), "mediatype", api), // convert string to media ID
+		//MediaTypeID: m["media_type_id"].(string),
+		Message: m["message"].(string),
+		Subject: m["subject"].(string),
 	}
 
 	targets := m["target"].(*schema.Set).List()

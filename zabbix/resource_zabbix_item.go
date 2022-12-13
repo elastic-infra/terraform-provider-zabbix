@@ -9,6 +9,35 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
+var ItemTypeInventoryMap = map[string]int{
+	"Zabbix agent":          0,
+	"Zabbix trapper":        2,
+	"Simple check":          3,
+	"Zabbix internal":       5,
+	"Zabbix agent (active)": 7,
+	"Web item":              9,
+	"External check":        10,
+	"Database monitor":      11,
+	"IPMI agent":            12,
+	"SSH agent":             13,
+	"Telnet agent":          14,
+	"Calculated":            15,
+	"JMX agent":             16,
+	"SNMP trap":             17,
+	"Dependent item":        18,
+	"HTTP agent":            19,
+	"SNMP_AGENT":            20,
+	"Script":                21,
+}
+
+var ValueTypeInventoryMap = map[string]int{
+	"float":     0,
+	"character": 1,
+	"log":       2,
+	"unsigned":  3,
+	"text":      4,
+}
+
 func resourceZabbixItem() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceZabbixItemCreate,
@@ -45,25 +74,25 @@ func resourceZabbixItem() *schema.Resource {
 				Description: "Name of the item.",
 			},
 			"type": &schema.Schema{
-				Type:     schema.TypeInt,
+				Type:     schema.TypeString,
 				Optional: true,
 				Default:  0,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-					v := val.(int)
-					if v < 0 || v > 16 {
-						errs = append(errs, fmt.Errorf("%q, must be between 0 and 16 inclusive, got %d", key, v))
+					value := ItemTypeInventoryMap[val.(string)]
+					if value < 0 || value > 21 {
+						errs = append(errs, fmt.Errorf("%q, must be between 0 and 16 inclusive, got %d", key, value))
 					}
 					return
 				},
 			},
 			"value_type": &schema.Schema{
-				Type:     schema.TypeInt,
+				Type:     schema.TypeString,
 				Optional: true,
 				Default:  0,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-					v := val.(int)
-					if v < 0 || v > 4 {
-						errs = append(errs, fmt.Errorf("%q, must be between 0 and 4 inclusive, got %d", key, v))
+					value := ValueTypeInventoryMap[val.(string)]
+					if value < 0 || value > 4 {
+						errs = append(errs, fmt.Errorf("%q, must be between 0 and 4 inclusive, got %d", key, value))
 					}
 					return
 				},
@@ -117,6 +146,36 @@ func resourceZabbixItem() *schema.Resource {
 				Optional:    true,
 				Description: "Allowed hosts. Used only by trapper items.",
 			},
+			"units": &schema.Schema{
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "SNMP OID , Used only with SNMP.",
+			},
+			"snmp_oid": &schema.Schema{
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "SNMP OID , Used only with SNMP.",
+			},
+			"tags": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"tag": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"value": {
+							Type:     schema.TypeString,
+							Optional: true},
+					},
+				},
+			},
+			"valuemap_id": &schema.Schema{
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Value Map of Item",
+			},
 		},
 	}
 }
@@ -129,14 +188,18 @@ func createItemObject(d *schema.ResourceData) *zabbix.Item {
 		InterfaceID:  d.Get("interface_id").(string),
 		Key:          d.Get("key").(string),
 		Name:         d.Get("name").(string),
-		Type:         zabbix.ItemType(d.Get("type").(int)),
-		ValueType:    zabbix.ValueType(d.Get("value_type").(int)),
+		Type:         zabbix.ItemType(ItemTypeInventoryMap[d.Get("type").(string)]),
+		ValueType:    zabbix.ValueType(ValueTypeInventoryMap[d.Get("value_type").(string)]),
 		DataType:     zabbix.DataType(d.Get("data_type").(int)),
 		Delta:        zabbix.DeltaType(d.Get("delta").(int)),
 		Description:  d.Get("description").(string),
 		History:      d.Get("history").(string),
 		Trends:       d.Get("trends").(string),
 		TrapperHosts: d.Get("trapper_host").(string),
+		SnmpOid:      d.Get("snmp_oid").(string),
+		Units:        d.Get("units").(string),
+		Tags:         createItemTagsObject(d.Get("tags").([]interface{})),
+		ValueMapID:   d.Get("valuemap_id").(string), // get its ID or create a new ValueMap
 	}
 
 	return &item
@@ -169,7 +232,9 @@ func resourceZabbixItemRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("history", item.History)
 	d.Set("trends", item.Trends)
 	d.Set("trapper_host", item.TrapperHosts)
-
+	d.Set("snmp_oid", item.SnmpOid)
+	d.Set("units", item.Units)
+	d.Set("tags", createItemTagsObject(d.Get("tags").([]interface{})))
 	log.Printf("[DEBUG] Item name is %s\n", item.Name)
 	return nil
 }
@@ -239,5 +304,29 @@ func updateItem(item interface{}, api *zabbix.API) (id string, err error) {
 		return
 	}
 	id = items[0].ItemID
+	return
+}
+
+func readItemTagsObject(tags zabbix.TagsList) (lst []interface{}, err error) {
+	for _, v := range tags {
+		m := map[string]interface{}{}
+		m["tag"] = v.Tag
+		m["value"] = v.Value
+		lst = append(lst, m)
+	}
+	return
+}
+
+func createItemTagsObject(lst []interface{}) (tags zabbix.TagsList) {
+	for _, v := range lst {
+		m := v.(map[string]interface{})
+
+		tag := zabbix.Tag{
+			Tag:   m["tag"].(string),
+			Value: m["value"].(string),
+		}
+		tags = append(tags, tag)
+	}
+
 	return
 }

@@ -39,7 +39,8 @@ func Provider() *schema.Provider {
 		},
 
 		DataSourcesMap: map[string]*schema.Resource{
-			"zabbix_server": dataSourceZabbixServer(),
+			"zabbix_server":     dataSourceZabbixServer(),
+			"zabbix_host_group": dataSourceZabbixHostGroup(),
 		},
 
 		ResourcesMap: map[string]*schema.Resource{
@@ -54,6 +55,8 @@ func Provider() *schema.Provider {
 			"zabbix_trigger_prototype": resourceZabbixTriggerPrototype(),
 			"zabbix_action":            resourceZabbixAction(),
 			"zabbix_role":              resourceZabbixRole(),
+			"zabbix_valuemap":          resourceZabbixValueMap(),
+
 		},
 	}
 

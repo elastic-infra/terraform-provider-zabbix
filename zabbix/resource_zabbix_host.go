@@ -191,7 +191,7 @@ func getHostGroups(d *schema.ResourceData, api *zabbix.API) (zabbix.HostGroupIDs
 				}
 			}
 
-			if !found {
+			if !found && n != "1" {
 				return nil, fmt.Errorf("Host group %s doesnt exist in zabbix server", n)
 			}
 			log.Printf("[DEBUG] %s exists on zabbix server", n)

@@ -26,9 +26,10 @@ func resourceZabbixTemplate() *schema.Resource {
 				Description: "Technical name of the template.",
 			},
 			"groups": &schema.Schema{
-				Type:        schema.TypeSet,
-				Elem:        &schema.Schema{Type: schema.TypeString},
-				Required:    true,
+				Type:     schema.TypeSet,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+				Optional: true,
+
 				Description: "ID of the Host Group.",
 			},
 			"name": &schema.Schema{
@@ -95,6 +96,11 @@ func createTemplateObj(d *schema.ResourceData, api *zabbix.API) (*zabbix.Templat
 	if err != nil {
 		return nil, err
 	}
+	if len(hostGroupIDs) == 0 {
+		hostGroupIDs = append(hostGroupIDs, zabbix.HostGroupID{
+			GroupID: "1",
+		})
+	}
 	template.Groups = make([]zabbix.TemplateGroup, len(hostGroupIDs))
 	for i, ID := range hostGroupIDs {
 		template.Groups[i].GroupID = ID.GroupID
@@ -102,6 +108,7 @@ func createTemplateObj(d *schema.ResourceData, api *zabbix.API) (*zabbix.Templat
 	if template.UserMacros == nil {
 		template.UserMacros = zabbix.Macros{}
 	}
+
 	return &template, nil
 }
 
@@ -149,6 +156,9 @@ func resourceZabbixTemplateRead(d *schema.ResourceData, meta interface{}) error 
 	terraformGroups, err := createTerraformTemplateGroup(d, api)
 	if err != nil {
 		return err
+	}
+	if terraformGroups == nil {
+		terraformGroups[0] = "1"
 	}
 	d.Set("groups", terraformGroups)
 	return nil
@@ -219,7 +229,9 @@ func createTerraformTemplateGroup(d *schema.ResourceData, api *zabbix.API) ([]st
 	if err != nil {
 		return nil, err
 	}
-
+	if len(groups) == 0 {
+		groups = append(groups, zabbix.HostGroup{GroupID: ""})
+	}
 	groupNames := make([]string, len(groups))
 	for i, g := range groups {
 		groupNames[i] = g.Name
