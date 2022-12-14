@@ -5,6 +5,7 @@ import (
 	"github.com/claranet/go-zabbix-api"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func resourceZabbixRole() *schema.Resource {
@@ -23,8 +24,9 @@ func resourceZabbixRole() *schema.Resource {
 				Required: true,
 			},
 			"type": {
-				Type:     schema.TypeInt,
-				Required: true,
+				Type:             schema.TypeString,
+				Required:         true,
+				ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice(zabbix.ValidRoleTypes, false)),
 			},
 			"read_only": {
 				Type:     schema.TypeInt,
@@ -37,9 +39,12 @@ func resourceZabbixRole() *schema.Resource {
 func resourceZabbixCreateRole(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 	api := meta.(*zabbix.API)
-	role := readRoleFromSchema(data)
+	role, err := readRoleFromSchema(data)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 	roles := zabbix.Roles{role}
-	err := api.RolesCreateAndSetIDs(roles)
+	err = api.RolesCreateAndSetIDs(roles)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -51,8 +56,11 @@ func resourceZabbixCreateRole(ctx context.Context, data *schema.ResourceData, me
 func resourceZabbixUpdateRole(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 	api := meta.(*zabbix.API)
-	role := readRoleFromSchema(data)
-	err := api.RolesUpdate(zabbix.Roles{role})
+	role, err := readRoleFromSchema(data)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	err = api.RolesUpdate(zabbix.Roles{role})
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -70,7 +78,11 @@ func resourceZabbixReadRole(ctx context.Context, data *schema.ResourceData, meta
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	err = data.Set("type", role.Type)
+	roleType, err := role.GetType()
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	err = data.Set("type", roleType)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -93,11 +105,12 @@ func resourceZabbixDeleteRole(ctx context.Context, data *schema.ResourceData, me
 	return diags
 }
 
-func readRoleFromSchema(data *schema.ResourceData) zabbix.Role {
-	role := zabbix.Role{
+func readRoleFromSchema(data *schema.ResourceData) (role zabbix.Role, err error) {
+	roleType, err := zabbix.NewRoleType(data.Get("type").(string))
+	role = zabbix.Role{
 		RoleID: data.Id(),
-		Type:   zabbix.RoleType(data.Get("type").(int)),
+		Type:   roleType,
 		Name:   data.Get("name").(string),
 	}
-	return role
+	return
 }
