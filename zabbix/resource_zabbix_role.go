@@ -37,72 +37,53 @@ func resourceZabbixRole() *schema.Resource {
 }
 
 func resourceZabbixCreateRole(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	var diags diag.Diagnostics
+	var errors TerraformErrors
 	api := meta.(*zabbix.API)
 	role, err := readRoleFromSchema(data)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-	roles := zabbix.Roles{role}
-	err = api.RolesCreateAndSetIDs(roles)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-	data.SetId(roles[0].RoleID)
+	errors.addError(err)
+	err = api.CreateAPIObject(&role)
+	errors.addError(err)
+	data.SetId(role.GetID())
 	resourceZabbixReadRole(ctx, data, meta)
-	return diags
+	return errors.getDiagnostics()
 }
 
 func resourceZabbixUpdateRole(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	var diags diag.Diagnostics
+	var errors TerraformErrors
 	api := meta.(*zabbix.API)
 	role, err := readRoleFromSchema(data)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-	err = api.RolesUpdate(zabbix.Roles{role})
-	if err != nil {
-		return diag.FromErr(err)
-	}
-	return diags
+	errors.addError(err)
+	err = api.UpdateAPIObject(&role)
+	errors.addError(err)
+	return errors.getDiagnostics()
 }
 
 func resourceZabbixReadRole(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	var diags diag.Diagnostics
+	var errors TerraformErrors
 	api := meta.(*zabbix.API)
-	role, err := api.RoleGetByID(data.Id())
-	if err != nil {
-		return diag.FromErr(err)
-	}
+	role := zabbix.Role{RoleID: data.Id()}
+	err := api.ReadAPIObject(&role)
+	errors.addError(err)
 	err = data.Set("name", role.Name)
-	if err != nil {
-		return diag.FromErr(err)
-	}
+	errors.addError(err)
 	roleType, err := role.GetType()
-	if err != nil {
-		return diag.FromErr(err)
-	}
+	errors.addError(err)
 	err = data.Set("type", roleType)
-	if err != nil {
-		return diag.FromErr(err)
-	}
+	errors.addError(err)
 	err = data.Set("read_only", role.ReadOnly)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-	return diags
+	errors.addError(err)
+	return errors.getDiagnostics()
 }
 
 func resourceZabbixDeleteRole(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	var diags diag.Diagnostics
+	var errors TerraformErrors
 	api := meta.(*zabbix.API)
-	roleId := data.Id()
-	err := api.RolesDeleteByID(roleId)
-	if err != nil {
-		return diag.FromErr(err)
-	}
+	role := zabbix.Role{}
+	role.SetID(data.Id())
+	err := api.DeleteAPIObject(&role)
+	errors.addError(err)
 	data.SetId("")
-	return diags
+	return errors.getDiagnostics()
 }
 
 func readRoleFromSchema(data *schema.ResourceData) (role zabbix.Role, err error) {
