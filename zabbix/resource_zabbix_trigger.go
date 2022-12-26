@@ -41,7 +41,7 @@ func resourceZabbixTrigger() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"template_id": &schema.Schema{
 				Type:     schema.TypeString,
-				Required: true,
+				Optional: true,
 			},
 			"uuid": &schema.Schema{
 				Type:     schema.TypeString,
@@ -205,7 +205,7 @@ func createTriggerDependencies(d *schema.ResourceData) zabbix.Triggers {
 func createTriggerObj(d *schema.ResourceData) zabbix.Trigger {
 	return zabbix.Trigger{
 		Name: d.Get("name").(string),
-		//TemplateID:   d.Get("templateid").(string),
+		//TemplateID:   d.Get("template_id").(string),
 		UUID:         d.Get("uuid").(string),
 		Expression:   d.Get("expression").(string),
 		RecoveryMode: RecoveryModeMap[(d.Get("recovery_mode").(string))],

@@ -176,6 +176,45 @@ func resourceZabbixItem() *schema.Resource {
 				Optional:    true,
 				Description: "Value Map of Item",
 			},
+			"preprocessor": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				Description: "Item Preprocessors",
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"step": {
+							Type:     schema.TypeList,
+							Optional: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"type": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"value": {
+										Type:     schema.TypeString,
+										Optional: true},
+								},
+							},
+						},
+					},
+				},
+			},
+			//"preprocessor": {
+			//	Type:     schema.TypeList,
+			//	Optional: true,
+			//	Elem: &schema.Resource{
+			//		Schema: map[string]*schema.Schema{
+			//			"type": {
+			//				Type:     schema.TypeString,
+			//				Required: true,
+			//			},
+			//			"value": {
+			//				Type:     schema.TypeString,
+			//				Optional: true},
+			//		},
+			//	},
+			//},
 		},
 	}
 }
@@ -200,9 +239,23 @@ func createItemObject(d *schema.ResourceData) *zabbix.Item {
 		Units:        d.Get("units").(string),
 		Tags:         createItemTagsObject(d.Get("tags").([]interface{})),
 		ValueMapID:   d.Get("valuemap_id").(string), // get its ID or create a new ValueMap
+		Preprocessor: createPreProcessorObject(d.Get("preprocessor").([]interface{})),
 	}
 
 	return &item
+}
+
+func createPreProcessorObject(lst []interface{}) (PreprocessorList zabbix.PreprocessorList) {
+	for _, v := range lst {
+		stepMap := v.(map[string]interface{})["step"].([]interface{})
+		for _, v := range stepMap {
+			key := v.(map[string]interface{})["type"].(string)
+			value := v.(map[string]interface{})["value"].(string)
+			println(key, value)
+		}
+	}
+
+	return PreprocessorList
 }
 
 func resourceZabbixItemCreate(d *schema.ResourceData, meta interface{}) error {

@@ -3,6 +3,7 @@ package zabbix
 import (
 	"github.com/claranet/go-zabbix-api"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"log"
 )
 
 /* Add a converter from Type String to Map
@@ -56,7 +57,7 @@ func resourceZabbixValueMap() *schema.Resource {
 				Optional:    true,
 				Description: "Universal unique identifier, used for linking imported value maps to already existing ones. Used only for value maps on templates. Auto-generated, if not given",
 			},
-			"valuemap_id": &schema.Schema{
+			"linked_template": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 			},
@@ -118,12 +119,15 @@ func createValueMap(valemap interface{}, api *zabbix.API) (id string, err error)
 	return
 }
 func createValueMapObject(d *schema.ResourceData) *zabbix.ValueMapType {
+	log.Printf("[DEBUG] trigger expression: %s", d.Get("name").(string))
+	log.Printf("[DEBUG] trigger expression: %s", d.Get("uuid").(string))
+	log.Printf("[DEBUG] trigger expression: %s", d.Get("linked_template").(string))
 
 	valueMap := zabbix.ValueMapType{
 		ValueMapName:     d.Get("name").(string),
 		ValueMapUUID:     d.Get("uuid").(string),
 		ValueMapMappings: createValueMapMappingObject(d.Get("mapping").([]interface{})),
-		ValueMapHostID:   d.Get("valuemap_id").(string),
+		ValueMapHostID:   d.Get("linked_template").(string),
 	}
 
 	return &valueMap
