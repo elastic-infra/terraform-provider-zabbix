@@ -56,7 +56,7 @@ func Provider() *schema.Provider {
 			"zabbix_action":            resourceZabbixAction(),
 			"zabbix_role":              resourceZabbixRole(),
 			"zabbix_valuemap":          resourceZabbixValueMap(),
-
+			"zabbix_user_group":        resourceZabbixUserGroup(),
 		},
 	}
 
