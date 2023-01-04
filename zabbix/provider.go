@@ -58,6 +58,9 @@ func Provider() *schema.Provider {
 			"zabbix_valuemap":          resourceZabbixValueMap(),
 			"zabbix_user_group":        resourceZabbixUserGroup(),
 			"zabbix_user":              resourceZabbixUser(),
+			"zabbix_mediatype_email":   resourceZabbixMediaTypeEmail(),
+			"zabbix_mediatype_script":  resourceZabbixMediaTypeScript(),
+			"zabbix_mediatype_webhook": resourceZabbixMediaTypeWebhook(),
 		},
 	}
 

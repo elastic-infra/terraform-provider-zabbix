@@ -10,6 +10,10 @@ func (e *TerraformErrors) addError(err error) {
 	e.errors = append(e.errors, err)
 }
 
+func (e *TerraformErrors) addFromTerraformErrors(errors TerraformErrors) {
+	e.errors = append(e.errors, errors.errors...)
+}
+
 func (e *TerraformErrors) getDiagnostics() diag.Diagnostics {
 	var diags diag.Diagnostics
 	for _, err := range e.errors {
