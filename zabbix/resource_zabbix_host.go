@@ -103,6 +103,22 @@ func resourceZabbixHost() *schema.Resource {
 				Elem:     &schema.Schema{Type: schema.TypeString},
 				Optional: true,
 			},
+			"macro": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"name": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"value": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -302,6 +318,19 @@ func createHostObj(d *schema.ResourceData, api *zabbix.API) (*zabbix.Host, error
 	}
 
 	host.TemplateIDs = templates
+
+	macroMaps := d.Get("macro").([]any)
+	var macros []zabbix.Macro
+	for _, macro := range macroMaps {
+		macroMap := macro.(map[string]any)
+		macros = append(macros,
+			zabbix.Macro{
+				MacroName: macroMap["name"].(string),
+				Value:     macroMap["value"].(string),
+			},
+		)
+	}
+	host.Macros = macros
 	return &host, nil
 }
 
@@ -348,6 +377,15 @@ func resourceZabbixHostRead(d *schema.ResourceData, meta interface{}) error {
 
 	d.Set("monitored", host.Status == 0)
 
+	var macros []any
+	for _, macro := range host.Macros {
+		macros = append(macros, map[string]any{
+			"name":  macro.MacroName,
+			"value": macro.Value,
+		})
+	}
+
+	d.Set("macro", macros)
 	params := zabbix.Params{
 		"output": "extend",
 		"hostids": []string{
