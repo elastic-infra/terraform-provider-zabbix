@@ -54,6 +54,7 @@ func resourceZabbixMediaTypeEmail() *schema.Resource {
 			"smtp_port": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
 		},
 	}
@@ -65,7 +66,8 @@ func resourceZabbixUpdateMediaTypeEmail(ctx context.Context, data *schema.Resour
 	mediaType := createEmailMediaTypeFromSchema(data)
 	err := api.UpdateAPIObject(mediaType)
 	errors.addError(err)
-	return errors.getDiagnostics()
+	readDiags := resourceZabbixReadMediaTypeEmail(ctx, data, meta)
+	return append(errors.getDiagnostics(), readDiags...)
 }
 
 func resourceZabbixCreateMediaTypeEmail(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -75,8 +77,8 @@ func resourceZabbixCreateMediaTypeEmail(ctx context.Context, data *schema.Resour
 	err := api.CreateAPIObject(mediaType)
 	errors.addError(err)
 	data.SetId(mediaType.GetID())
-	resourceZabbixReadMediaTypeEmail(ctx, data, meta)
-	return errors.getDiagnostics()
+	readDiags := resourceZabbixReadMediaTypeEmail(ctx, data, meta)
+	return append(errors.getDiagnostics(), readDiags...)
 }
 
 func resourceZabbixReadMediaTypeEmail(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {

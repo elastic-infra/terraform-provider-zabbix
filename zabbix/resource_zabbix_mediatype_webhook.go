@@ -37,7 +37,8 @@ func resourceZabbixMediaTypeWebhook() *schema.Resource {
 			},
 			"timeout": {
 				Type:     schema.TypeString,
-				Required: true,
+				Optional: true,
+				Computed: true,
 			},
 			"parameter": {
 				Type:     schema.TypeList,
@@ -65,7 +66,8 @@ func resourceZabbixUpdateMediaTypeWebhook(ctx context.Context, data *schema.Reso
 	mediaType := createWebhookMediaTypeFromSchema(data)
 	err := api.UpdateAPIObject(mediaType)
 	errors.addError(err)
-	return errors.getDiagnostics()
+	readDiags := resourceZabbixReadMediaTypeWebhook(ctx, data, meta)
+	return append(errors.getDiagnostics(), readDiags...)
 }
 
 func resourceZabbixReadMediaTypeWebhook(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -100,8 +102,8 @@ func resourceZabbixCreateMediaTypeWebhook(ctx context.Context, data *schema.Reso
 	err := api.CreateAPIObject(mediaType)
 	errors.addError(err)
 	data.SetId(mediaType.GetID())
-	resourceZabbixReadMediaTypeWebhook(ctx, data, meta)
-	return errors.getDiagnostics()
+	readDiags := resourceZabbixReadMediaTypeWebhook(ctx, data, meta)
+	return append(errors.getDiagnostics(), readDiags...)
 }
 
 func createWebhookMediaTypeFromSchema(data *schema.ResourceData) (mediaType *zabbix.MediaType) {

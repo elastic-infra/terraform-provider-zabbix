@@ -53,7 +53,8 @@ func resourceZabbixUpdateMediaTypeScript(ctx context.Context, data *schema.Resou
 	mediaType := createScriptMediaTypeFromSchema(data)
 	err := api.UpdateAPIObject(mediaType)
 	errors.addError(err)
-	return errors.getDiagnostics()
+	readDiags := resourceZabbixReadMediaTypeScript(ctx, data, meta)
+	return append(errors.getDiagnostics(), readDiags...)
 }
 
 func resourceZabbixReadMediaTypeScript(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -85,8 +86,8 @@ func resourceZabbixCreateMediaTypeScript(ctx context.Context, data *schema.Resou
 	err := api.CreateAPIObject(mediaType)
 	errors.addError(err)
 	data.SetId(mediaType.GetID())
-	resourceZabbixReadMediaTypeScript(ctx, data, meta)
-	return errors.getDiagnostics()
+	readDiags := resourceZabbixReadMediaTypeScript(ctx, data, meta)
+	return append(errors.getDiagnostics(), readDiags...)
 }
 
 func createScriptMediaTypeFromSchema(data *schema.ResourceData) (mediaType *zabbix.MediaType) {
