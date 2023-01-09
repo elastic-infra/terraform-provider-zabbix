@@ -53,8 +53,14 @@ func resourceZabbixProxy() *schema.Resource {
 				Type:     schema.TypeList,
 				Optional: true,
 				MaxItems: 1,
+				// For some reason the API isn't working when interface property is set for update method
+				// So the proxy object has to be recreated when this property is to be changed
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
+						"id": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
 						"dns": {
 							Type:     schema.TypeString,
 							Optional: true,
@@ -137,17 +143,23 @@ func resourceZabbixReadProxy(ctx context.Context, data *schema.ResourceData, met
 	}
 	err = data.Set("hosts", hostIds)
 	errors.addError(err)
-	err = data.Set("proxy_addresses", strings.Split(proxy.ProxyAddress, ","))
+	if proxy.ProxyAddress == "" {
+		err = data.Set("proxy_addresses", []string{})
+	} else {
+		err = data.Set("proxy_addresses", strings.Split(proxy.ProxyAddress, ","))
+	}
 	errors.addError(err)
 	useIp := false
-	if proxy.Interface != nil {
-		if proxy.Interface.UseIP != 0 {
+	proxyInterface, ok := proxy.Interface.(zabbix.ProxyInterface)
+	if ok && proxy.Interface != nil {
+		if proxyInterface.UseIP != 0 {
 			useIp = true
 		}
 		err = data.Set("interface", []map[string]any{{
-			"dns":    proxy.Interface.DNS,
-			"ip":     proxy.Interface.IP,
-			"port":   proxy.Interface.Port,
+			"id":     proxyInterface.InterfaceID,
+			"dns":    proxyInterface.DNS,
+			"ip":     proxyInterface.IP,
+			"port":   proxyInterface.Port,
 			"use_ip": useIp,
 		}})
 		errors.addError(err)
@@ -199,10 +211,11 @@ func createProxyInterfaceObjectFromResourceData(data *schema.ResourceData) (prox
 		return
 	}
 	proxyInterface = &zabbix.ProxyInterface{
-		IP:    proxyInterfaceMap["ip"].(string),
-		DNS:   proxyInterfaceMap["dns"].(string),
-		Port:  proxyInterfaceMap["port"].(string),
-		UseIP: useIP,
+		InterfaceID: proxyInterfaceMap["id"].(string),
+		IP:          proxyInterfaceMap["ip"].(string),
+		DNS:         proxyInterfaceMap["dns"].(string),
+		Port:        proxyInterfaceMap["port"].(string),
+		UseIP:       useIP,
 	}
 	return
 }
