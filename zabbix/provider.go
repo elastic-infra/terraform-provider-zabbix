@@ -61,6 +61,7 @@ func Provider() *schema.Provider {
 			"zabbix_mediatype_email":   resourceZabbixMediaTypeEmail(),
 			"zabbix_mediatype_script":  resourceZabbixMediaTypeScript(),
 			"zabbix_mediatype_webhook": resourceZabbixMediaTypeWebhook(),
+			"zabbix_proxy":             resourceZabbixProxy(),
 		},
 	}
 
