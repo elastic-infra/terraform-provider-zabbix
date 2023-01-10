@@ -10,6 +10,11 @@ import (
 	"strings"
 )
 
+var ProxyStatusMap = EnumMap{
+	"ACTIVE":  int(zabbix.ActiveProxy),
+	"PASSIVE": int(zabbix.PassiveProxy),
+}
+
 func resourceZabbixProxy() *schema.Resource {
 	return &schema.Resource{
 		CreateContext: resourceZabbixCreateProxy,
@@ -165,11 +170,6 @@ func resourceZabbixReadProxy(ctx context.Context, data *schema.ResourceData, met
 		errors.addError(err)
 	}
 	return errors.getDiagnostics()
-}
-
-var ProxyStatusMap = EnumMap{
-	"ACTIVE":  int(zabbix.ActiveProxy),
-	"PASSIVE": int(zabbix.PassiveProxy),
 }
 
 func createProxyObjectFromResourceData(data *schema.ResourceData) (proxy *zabbix.Proxy, err error) {
