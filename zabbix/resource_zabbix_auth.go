@@ -222,7 +222,7 @@ func resourceZabbixAuthenticationRead(ctx context.Context, data *schema.Resource
 	errors.addError(data.Set("http_case_sensitive", authentication.HttpCaseSensitive))
 	errors.addError(data.Set("ldap_configured", authentication.LdapConfigured))
 	errors.addError(data.Set("ldap_case_sensitive", authentication.LdapCaseSensitive))
-	errors.addError(data.Set("ldap_userdirectoryid", authentication.LdapUserdirectoryid))
+	//errors.addError(data.Set("ldap_userdirectoryid", authentication.LdapUserdirectoryid))
 	errors.addError(data.Set("saml_auth_enabled", authentication.SamlAuthEnabled))
 	errors.addError(data.Set("saml_idp_entityid", authentication.SamlIdpEntityid))
 	errors.addError(data.Set("saml_sso_url", authentication.SamlSsoUrl))
@@ -238,21 +238,21 @@ func resourceZabbixAuthenticationRead(ctx context.Context, data *schema.Resource
 	errors.addError(data.Set("saml_encrypt_nameid", authentication.SamlEncryptNameid))
 	errors.addError(data.Set("saml_encrypt_assertions", authentication.SamlEncryptAssertions))
 	errors.addError(data.Set("saml_case_sensitive", authentication.SamlCaseSensitive))
-	errors.addError(data.Set("passwd_min_length", authentication.PasswdMinLength))
-	errors.addError(data.Set("passwd_check_rules", authentication.PasswdCheckRules))
+	//errors.addError(data.Set("passwd_min_length", authentication.PasswdMinLength))
+	//errors.addError(data.Set("passwd_check_rules", authentication.PasswdCheckRules))
 	return errors.getDiagnostics()
 }
 
 func createAuthObjectFromResourceData(d *schema.ResourceData) *zabbix.AuthenticationSettings {
 	auth := &zabbix.AuthenticationSettings{
-		AuthenticationType:      d.Get("authentication_type").(int),
-		HttpAuthEnabled:         d.Get("http_auth_enabled").(int),
-		HttpLoginForm:           d.Get("http_login_form").(int),
-		HttpStripDomains:        d.Get("http_strip_domains").(string),
-		HttpCaseSensitive:       d.Get("http_case_sensitive").(int),
-		LdapConfigured:          d.Get("ldap_configured").(int),
-		LdapCaseSensitive:       d.Get("ldap_case_sensitive").(int),
-		LdapUserdirectoryid:     d.Get("ldap_userdirectoryid").(int),
+		AuthenticationType: d.Get("authentication_type").(int),
+		HttpAuthEnabled:    d.Get("http_auth_enabled").(int),
+		HttpLoginForm:      d.Get("http_login_form").(int),
+		HttpStripDomains:   d.Get("http_strip_domains").(string),
+		HttpCaseSensitive:  d.Get("http_case_sensitive").(int),
+		LdapConfigured:     d.Get("ldap_configured").(int),
+		LdapCaseSensitive:  d.Get("ldap_case_sensitive").(int),
+		//LdapUserdirectoryid:     d.Get("ldap_userdirectoryid").(int),
 		SamlAuthEnabled:         d.Get("saml_auth_enabled").(int),
 		SamlIdpEntityid:         d.Get("saml_idp_entityid").(string),
 		SamlSsoUrl:              d.Get("saml_sso_url").(string),
@@ -268,8 +268,8 @@ func createAuthObjectFromResourceData(d *schema.ResourceData) *zabbix.Authentica
 		SamlEncryptNameid:       d.Get("saml_encrypt_nameid").(int),
 		SamlEncryptAssertions:   d.Get("saml_encrypt_assertions").(int),
 		SamlCaseSensitive:       d.Get("saml_case_sensitive").(int),
-		PasswdMinLength:         d.Get("passwd_min_length").(int),
-		PasswdCheckRules:        d.Get("passwd_check_rules").(int),
+		//PasswdMinLength:         d.Get("passwd_min_length").(int),
+		//PasswdCheckRules:        d.Get("passwd_check_rules").(int),
 	}
 	return auth
 }
