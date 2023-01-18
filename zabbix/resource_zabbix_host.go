@@ -1,8 +1,9 @@
 package zabbix
 
 import (
-	"errors"
+	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"log"
 
 	"github.com/claranet/go-zabbix-api"
@@ -10,11 +11,11 @@ import (
 )
 
 // HostInterfaceTypes zabbix different interface type
-var HostInterfaceTypes = map[string]zabbix.InterfaceType{
-	"agent": 1,
-	"snmp":  2,
-	"ipmi":  3,
-	"jmx":   4,
+var HostInterfaceTypes = EnumMap{
+	"agent": int(zabbix.AgentInterface),
+	"snmp":  int(zabbix.SNMPInterface),
+	"ipmi":  int(zabbix.IPMIInterface),
+	"jmx":   int(zabbix.JMXInterface),
 }
 
 var interfaceSchema *schema.Resource = &schema.Resource{
@@ -22,44 +23,38 @@ var interfaceSchema *schema.Resource = &schema.Resource{
 		"dns": &schema.Schema{
 			Type:     schema.TypeString,
 			Optional: true,
-			ForceNew: true,
 		},
 		"ip": &schema.Schema{
 			Type:     schema.TypeString,
 			Optional: true,
-			ForceNew: true,
 		},
 		"main": &schema.Schema{
 			Type:     schema.TypeBool,
 			Required: true,
-			ForceNew: true,
 		},
 		"port": &schema.Schema{
 			Type:     schema.TypeString,
 			Optional: true,
 			Default:  "10050",
-			ForceNew: true,
 		},
 		"type": &schema.Schema{
 			Type:     schema.TypeString,
 			Optional: true,
 			Default:  "agent",
-			ForceNew: true,
 		},
 		"interface_id": &schema.Schema{
 			Type:     schema.TypeString,
 			Computed: true,
-			ForceNew: true,
 		},
 	},
 }
 
 func resourceZabbixHost() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceZabbixHostCreate,
-		Read:   resourceZabbixHostRead,
-		Update: resourceZabbixHostUpdate,
-		Delete: resourceZabbixHostDelete,
+		CreateContext: resourceZabbixHostCreate,
+		ReadContext:   resourceZabbixHostRead,
+		UpdateContext: resourceZabbixHostUpdate,
+		DeleteContext: resourceZabbixHostDelete,
 		Schema: map[string]*schema.Schema{
 			"host": &schema.Schema{
 				Type:        schema.TypeString,
@@ -90,8 +85,7 @@ func resourceZabbixHost() *schema.Resource {
 			"interfaces": &schema.Schema{
 				Type:     schema.TypeList,
 				Elem:     interfaceSchema,
-				Required: true,
-				ForceNew: true,
+				Optional: true,
 			},
 			"groups": &schema.Schema{
 				Type:     schema.TypeSet,
@@ -141,9 +135,9 @@ func getInterfaces(d *schema.ResourceData) (zabbix.HostInterfaces, error) {
 
 		ip := d.Get(prefix + "ip").(string)
 		dns := d.Get(prefix + "dns").(string)
-
+		interfaceId := d.Get(prefix + "interface_id").(string)
 		if ip == "" && dns == "" {
-			return nil, errors.New("Atleast one of two dns or ip must be set")
+			return nil, fmt.Errorf("atleast one of two dns or ip must be set")
 		}
 
 		useip := 1
@@ -155,16 +149,17 @@ func getInterfaces(d *schema.ResourceData) (zabbix.HostInterfaces, error) {
 		main := 1
 
 		if !d.Get(prefix + "main").(bool) {
-			main = 1
+			main = 0
 		}
 
 		interfaces[i] = zabbix.HostInterface{
-			IP:    ip,
-			DNS:   dns,
-			Main:  main,
-			Port:  d.Get(prefix + "port").(string),
-			Type:  typeID,
-			UseIP: useip,
+			InterfaceID: interfaceId,
+			IP:          ip,
+			DNS:         dns,
+			Main:        main,
+			Port:        d.Get(prefix + "port").(string),
+			Type:        zabbix.InterfaceType(typeID),
+			UseIP:       useip,
 		}
 	}
 
@@ -334,13 +329,13 @@ func createHostObj(d *schema.ResourceData, api *zabbix.API) (*zabbix.Host, error
 	return &host, nil
 }
 
-func resourceZabbixHostCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceZabbixHostCreate(context context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	api := meta.(*zabbix.API)
 
 	host, err := createHostObj(d, api)
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	hosts := zabbix.Hosts{*host}
@@ -348,34 +343,37 @@ func resourceZabbixHostCreate(d *schema.ResourceData, meta interface{}) error {
 	err = api.HostsCreate(hosts)
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	log.Printf("[DEBUG] Created host id is %s", hosts[0].HostID)
 
 	d.Set("host_id", hosts[0].HostID)
 	d.SetId(hosts[0].HostID)
-
-	return nil
+	readDiags := resourceZabbixHostRead(context, d, meta)
+	return readDiags
 }
 
-func resourceZabbixHostRead(d *schema.ResourceData, meta interface{}) error {
+func resourceZabbixHostRead(context context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	api := meta.(*zabbix.API)
+	var errors TerraformErrors
 
 	log.Printf("[DEBUG] Will read host with id %s", d.Get("host_id").(string))
 
-	host, err := api.HostGetByID(d.Get("host_id").(string))
+	host := &zabbix.Host{HostID: d.Id()}
+	err := api.ReadAPIObject(host)
+	log.Printf("[DEBUG] Read host: %+v\n", host)
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	log.Printf("[DEBUG] Host name is %s", host.Name)
 
-	d.Set("host", host.Host)
-	d.Set("name", host.Name)
+	errors.addError(d.Set("host", host.Host))
+	errors.addError(d.Set("name", host.Name))
 
-	d.Set("monitored", host.Status == 0)
+	errors.addError(d.Set("monitored", host.Status == 0))
 
 	var macros []any
 	for _, macro := range host.Macros {
@@ -385,7 +383,7 @@ func resourceZabbixHostRead(d *schema.ResourceData, meta interface{}) error {
 		})
 	}
 
-	d.Set("macro", macros)
+	errors.addError(d.Set("macro", macros))
 	params := zabbix.Params{
 		"output": "extend",
 		"hostids": []string{
@@ -396,7 +394,7 @@ func resourceZabbixHostRead(d *schema.ResourceData, meta interface{}) error {
 	templates, err := api.TemplatesGet(params)
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	templateNames := make([]string, len(templates))
@@ -405,12 +403,12 @@ func resourceZabbixHostRead(d *schema.ResourceData, meta interface{}) error {
 		templateNames[i] = t.Host
 	}
 
-	d.Set("templates", templateNames)
+	errors.addError(d.Set("templates", templateNames))
 
 	groups, err := api.HostGroupsGet(params)
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	groupNames := make([]string, len(groups))
@@ -419,41 +417,64 @@ func resourceZabbixHostRead(d *schema.ResourceData, meta interface{}) error {
 		groupNames[i] = g.Name
 	}
 
-	d.Set("groups", groupNames)
+	errors.addError(d.Set("groups", groupNames))
 
-	return nil
+	var interfaces []map[string]any
+	for _, hostInterface := range host.Interfaces {
+		interfaceType := HostInterfaceTypes.getStringType(int(hostInterface.Type))
+		isMain := true
+		if hostInterface.Main == 0 {
+			isMain = false
+		}
+		interfaces = append(interfaces, map[string]any{
+			"dns":          hostInterface.DNS,
+			"ip":           hostInterface.IP,
+			"main":         isMain,
+			"port":         hostInterface.Port,
+			"type":         interfaceType,
+			"interface_id": hostInterface.InterfaceID,
+		})
+	}
+	errors.addError(d.Set("interfaces", interfaces))
+
+	return errors.getDiagnostics()
 }
 
-func resourceZabbixHostUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceZabbixHostUpdate(context context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	api := meta.(*zabbix.API)
 
 	host, err := createHostObj(d, api)
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	host.HostID = d.Id()
 
-	//interfaces can't be updated, changes will trigger recreate
-	//sending previous values will also fail the update
-	host.Interfaces = nil
+	////interfaces can't be updated, changes will trigger recreate
+	////sending previous values will also fail the update
+	//host.Interfaces = nil
 
 	hosts := zabbix.Hosts{*host}
 
 	err = api.HostsUpdate(hosts)
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	log.Printf("[DEBUG] Created host id is %s", hosts[0].HostID)
-
-	return nil
+	readDiags := resourceZabbixHostRead(context, d, meta)
+	return readDiags
 }
 
-func resourceZabbixHostDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceZabbixHostDelete(context context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	api := meta.(*zabbix.API)
-
-	return api.HostsDeleteByIds([]string{d.Id()})
+	host := &zabbix.Host{HostID: d.Id()}
+	err := api.DeleteAPIObject(host)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	d.SetId("")
+	return nil
 }
