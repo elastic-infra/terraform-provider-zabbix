@@ -10,6 +10,11 @@ import (
 	"strings"
 )
 
+var ProxyStatusMap = EnumMap{
+	"ACTIVE":  int(zabbix.ActiveProxy),
+	"PASSIVE": int(zabbix.PassiveProxy),
+}
+
 func resourceZabbixProxy() *schema.Resource {
 	return &schema.Resource{
 		CreateContext: resourceZabbixCreateProxy,
@@ -29,10 +34,6 @@ func resourceZabbixProxy() *schema.Resource {
 			"description": {
 				Type:     schema.TypeString,
 				Optional: true,
-			},
-			"last_access": {
-				Type:     schema.TypeString,
-				Computed: true,
 			},
 			"hosts": {
 				Type:     schema.TypeList,
@@ -135,7 +136,6 @@ func resourceZabbixReadProxy(ctx context.Context, data *schema.ResourceData, met
 	errors.addError(err)
 	err = data.Set("description", proxy.Description)
 	errors.addError(err)
-	err = data.Set("last_access", proxy.LastAccess)
 	errors.addError(err)
 	var hostIds []string
 	for _, host := range proxy.MonitoredHosts {
@@ -167,11 +167,6 @@ func resourceZabbixReadProxy(ctx context.Context, data *schema.ResourceData, met
 	return errors.getDiagnostics()
 }
 
-var ProxyStatusMap = EnumMap{
-	"ACTIVE":  int(zabbix.ActiveProxy),
-	"PASSIVE": int(zabbix.PassiveProxy),
-}
-
 func createProxyObjectFromResourceData(data *schema.ResourceData) (proxy *zabbix.Proxy, err error) {
 	proxyStatus := zabbix.ProxyStatus(ProxyStatusMap[data.Get("status").(string)])
 	proxyInterface, err := createProxyInterfaceObjectFromResourceData(data)
@@ -189,7 +184,6 @@ func createProxyObjectFromResourceData(data *schema.ResourceData) (proxy *zabbix
 		Status:         proxyStatus,
 		Description:    data.Get("description").(string),
 		ProxyAddress:   getProxyAddress(data.Get("proxy_addresses").([]any)),
-		LastAccess:     data.Get("last_access").(string),
 		Interface:      proxyInterface,
 		MonitoredHosts: monitoredHosts,
 	}
