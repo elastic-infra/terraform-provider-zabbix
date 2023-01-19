@@ -35,10 +35,6 @@ func resourceZabbixProxy() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
-			"last_access": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
 			"hosts": {
 				Type:     schema.TypeList,
 				Optional: true,
@@ -140,7 +136,6 @@ func resourceZabbixReadProxy(ctx context.Context, data *schema.ResourceData, met
 	errors.addError(err)
 	err = data.Set("description", proxy.Description)
 	errors.addError(err)
-	err = data.Set("last_access", proxy.LastAccess)
 	errors.addError(err)
 	var hostIds []string
 	for _, host := range proxy.MonitoredHosts {
@@ -189,7 +184,6 @@ func createProxyObjectFromResourceData(data *schema.ResourceData) (proxy *zabbix
 		Status:         proxyStatus,
 		Description:    data.Get("description").(string),
 		ProxyAddress:   getProxyAddress(data.Get("proxy_addresses").([]any)),
-		LastAccess:     data.Get("last_access").(string),
 		Interface:      proxyInterface,
 		MonitoredHosts: monitoredHosts,
 	}
