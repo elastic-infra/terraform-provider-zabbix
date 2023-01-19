@@ -18,37 +18,6 @@ var HostInterfaceTypes = EnumMap{
 	"jmx":   int(zabbix.JMXInterface),
 }
 
-var interfaceSchema *schema.Resource = &schema.Resource{
-	Schema: map[string]*schema.Schema{
-		"dns": &schema.Schema{
-			Type:     schema.TypeString,
-			Optional: true,
-		},
-		"ip": &schema.Schema{
-			Type:     schema.TypeString,
-			Optional: true,
-		},
-		"main": &schema.Schema{
-			Type:     schema.TypeBool,
-			Required: true,
-		},
-		"port": &schema.Schema{
-			Type:     schema.TypeString,
-			Optional: true,
-			Default:  "10050",
-		},
-		"type": &schema.Schema{
-			Type:     schema.TypeString,
-			Optional: true,
-			Default:  "agent",
-		},
-		"interface_id": &schema.Schema{
-			Type:     schema.TypeString,
-			Computed: true,
-		},
-	},
-}
-
 func resourceZabbixHost() *schema.Resource {
 	return &schema.Resource{
 		CreateContext: resourceZabbixHostCreate,
@@ -56,43 +25,34 @@ func resourceZabbixHost() *schema.Resource {
 		UpdateContext: resourceZabbixHostUpdate,
 		DeleteContext: resourceZabbixHostDelete,
 		Schema: map[string]*schema.Schema{
-			"host": &schema.Schema{
+			"host": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "Technical name of the host.",
 			},
-			"host_id": &schema.Schema{
-				Type:        schema.TypeString,
-				Computed:    true,
-				ForceNew:    true,
-				Description: "(readonly) ID of the host",
-			},
-			"name": &schema.Schema{
+			"name": {
 				Type:        schema.TypeString,
 				Required:    false,
 				Optional:    true,
 				Computed:    true,
 				Description: "Visible name of the host.",
 			},
-			"monitored": &schema.Schema{
+			"monitored": {
 				Type:     schema.TypeBool,
 				Default:  true,
 				Optional: true,
 			},
-			//any changes to interface will trigger recreate, zabbix api kinda doesn't
-			//work nicely, interface can get linked to various things and replacement
-			//simply doesn't work
-			"interfaces": &schema.Schema{
+			"interfaces": {
 				Type:     schema.TypeList,
 				Elem:     interfaceSchema,
 				Optional: true,
 			},
-			"groups": &schema.Schema{
+			"groups": {
 				Type:     schema.TypeSet,
 				Elem:     &schema.Schema{Type: schema.TypeString},
 				Required: true,
 			},
-			"templates": &schema.Schema{
+			"templates": {
 				Type:     schema.TypeSet,
 				Elem:     &schema.Schema{Type: schema.TypeString},
 				Optional: true,
@@ -117,41 +77,119 @@ func resourceZabbixHost() *schema.Resource {
 	}
 }
 
-func getInterfaces(d *schema.ResourceData) (zabbix.HostInterfaces, error) {
+var interfaceSchema = &schema.Resource{
+	Schema: map[string]*schema.Schema{
+		"dns": {
+			Type:     schema.TypeString,
+			Optional: true,
+		},
+		"ip": {
+			Type:     schema.TypeString,
+			Optional: true,
+		},
+		"main": {
+			Type:     schema.TypeBool,
+			Required: true,
+		},
+		"port": {
+			Type:     schema.TypeString,
+			Optional: true,
+			Default:  "10050",
+		},
+		"type": {
+			Type:     schema.TypeString,
+			Optional: true,
+			Default:  "agent",
+		},
+		"interface_id": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"snmp_configs": {
+			Type:     schema.TypeList,
+			Optional: true,
+			MaxItems: 1,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"version": {
+						Type:     schema.TypeInt,
+						Required: true,
+					},
+					"community": {
+						Type:     schema.TypeString,
+						Optional: true,
+					},
+					"snmpv3_config": {
+						Type:     schema.TypeString,
+						Optional: true,
+					},
+				},
+			},
+		},
+	},
+}
+
+func resourceZabbixHostCreate(context context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	api := meta.(*zabbix.API)
+	host, err := createHostObjectFromResourceData(data)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	err = api.CreateAPIObject(host)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	data.SetId(host.HostID)
+	readDiags := resourceZabbixHostRead(context, data, meta)
+	return readDiags
+}
+
+func createHostObjectFromResourceData(data *schema.ResourceData) (*zabbix.Host, error) {
+	host := zabbix.Host{
+		HostID: data.Id(),
+		Host:   data.Get("host").(string),
+		Name:   data.Get("name").(string),
+		Status: 0,
+	}
+	//0 is monitored, 1 - unmonitored host
+	if !data.Get("monitored").(bool) {
+		host.Status = 1
+	}
+	host.GroupIds = generateHostGroupIDsFromResourceData(data)
+	interfaces, err := generateInterfacesFromResourceData(data)
+	if err != nil {
+		return nil, err
+	}
+	host.Interfaces = interfaces
+	host.TemplateIDs = generateTemplateIDsFromResourceData(data)
+	host.Macros = generateHostMacrosFromResourceData(data)
+	return &host, nil
+}
+
+func generateInterfacesFromResourceData(d *schema.ResourceData) ([]zabbix.HostInterface, error) {
 	interfaceCount := d.Get("interfaces.#").(int)
-
 	interfaces := make(zabbix.HostInterfaces, interfaceCount)
-
 	for i := 0; i < interfaceCount; i++ {
 		prefix := fmt.Sprintf("interfaces.%d.", i)
-
 		interfaceType := d.Get(prefix + "type").(string)
-
 		typeID, ok := HostInterfaceTypes[interfaceType]
-
 		if !ok {
 			return nil, fmt.Errorf("%s isnt valid interface type", interfaceType)
 		}
-
 		ip := d.Get(prefix + "ip").(string)
 		dns := d.Get(prefix + "dns").(string)
 		interfaceId := d.Get(prefix + "interface_id").(string)
 		if ip == "" && dns == "" {
 			return nil, fmt.Errorf("atleast one of two dns or ip must be set")
 		}
-
 		useip := 1
-
 		if ip == "" {
 			useip = 0
 		}
-
 		main := 1
-
 		if !d.Get(prefix + "main").(bool) {
 			main = 0
 		}
-
 		interfaces[i] = zabbix.HostInterface{
 			InterfaceID: interfaceId,
 			IP:          ip,
@@ -162,159 +200,29 @@ func getInterfaces(d *schema.ResourceData) (zabbix.HostInterfaces, error) {
 			UseIP:       useip,
 		}
 	}
-
 	return interfaces, nil
 }
 
-func getHostGroups(d *schema.ResourceData, api *zabbix.API) (zabbix.HostGroupIDs, error) {
-	configGroups := d.Get("groups").(*schema.Set)
-	setHostGroups := make([]string, configGroups.Len())
-
-	for i, g := range configGroups.List() {
-		setHostGroups[i] = g.(string)
+func generateHostGroupIDsFromResourceData(data *schema.ResourceData) []zabbix.HostGroupID {
+	groupIDsList := data.Get("groups").(*schema.Set).List()
+	hostGroupIDs := make([]zabbix.HostGroupID, len(groupIDsList))
+	for i, ID := range groupIDsList {
+		hostGroupIDs[i] = zabbix.HostGroupID{GroupID: ID.(string)}
 	}
-
-	log.Printf("[DEBUG] Groups %v\n", setHostGroups)
-
-	groupParams := zabbix.Params{
-		"output": "extend",
-		"filter": map[string]interface{}{
-			"name": setHostGroups,
-		},
-	}
-
-	groups, err := api.HostGroupsGet(groupParams)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if len(groups) < configGroups.Len() {
-		log.Printf("[DEBUG] Not all of the specified groups were found on zabbix server")
-
-		for _, n := range configGroups.List() {
-			found := false
-
-			for _, g := range groups {
-				if n == g.Name {
-					found = true
-					break
-				}
-			}
-
-			if !found && n != "1" {
-				return nil, fmt.Errorf("Host group %s doesnt exist in zabbix server", n)
-			}
-			log.Printf("[DEBUG] %s exists on zabbix server", n)
-		}
-	}
-
-	hostGroups := make(zabbix.HostGroupIDs, len(groups))
-
-	for i, g := range groups {
-		hostGroups[i] = zabbix.HostGroupID{
-			GroupID: g.GroupID,
-		}
-	}
-
-	return hostGroups, nil
+	return hostGroupIDs
 }
 
-func getTemplates(d *schema.ResourceData, api *zabbix.API) (zabbix.TemplateIDs, error) {
-	configTemplates := d.Get("templates").(*schema.Set)
-	templateNames := make([]string, configTemplates.Len())
-
-	if configTemplates.Len() == 0 {
-		return nil, nil
+func generateTemplateIDsFromResourceData(d *schema.ResourceData) []zabbix.TemplateID {
+	templateIDsList := d.Get("templates").(*schema.Set).List()
+	templateIDs := make([]zabbix.TemplateID, len(templateIDsList))
+	for i, ID := range templateIDsList {
+		templateIDs[i] = zabbix.TemplateID{TemplateID: ID.(string)}
 	}
-
-	for i, g := range configTemplates.List() {
-		templateNames[i] = g.(string)
-	}
-
-	log.Printf("[DEBUG] Templates %v\n", templateNames)
-
-	groupParams := zabbix.Params{
-		"output": "extend",
-		"filter": map[string]interface{}{
-			"host": templateNames,
-		},
-	}
-
-	templates, err := api.TemplatesGet(groupParams)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if len(templates) < configTemplates.Len() {
-		log.Printf("[DEBUG] Not all of the specified templates were found on zabbix server")
-
-		for _, n := range configTemplates.List() {
-			found := false
-
-			for _, g := range templates {
-				if n == g.Name {
-					found = true
-					break
-				}
-			}
-
-			if !found {
-				return nil, fmt.Errorf("Template %s doesnt exist in zabbix server", n)
-			}
-			log.Printf("[DEBUG] Template %s exists on zabbix server", n)
-		}
-	}
-
-	hostTemplates := make(zabbix.TemplateIDs, len(templates))
-
-	for i, t := range templates {
-		hostTemplates[i] = zabbix.TemplateID{
-			TemplateID: t.TemplateID,
-		}
-	}
-
-	return hostTemplates, nil
+	return templateIDs
 }
 
-func createHostObj(d *schema.ResourceData, api *zabbix.API) (*zabbix.Host, error) {
-	host := zabbix.Host{
-		Host:   d.Get("host").(string),
-		Name:   d.Get("name").(string),
-		Status: 0,
-	}
-
-	//0 is monitored, 1 - unmonitored host
-	if !d.Get("monitored").(bool) {
-		host.Status = 1
-	}
-
-	hostGroups, err := getHostGroups(d, api)
-
-	if err != nil {
-		return nil, err
-	}
-
-	host.GroupIds = hostGroups
-
-	interfaces, err := getInterfaces(d)
-
-	if err != nil {
-		return nil, err
-	}
-
-	host.Interfaces = interfaces
-
-	templates, err := getTemplates(d, api)
-
-	if err != nil {
-		return nil, err
-	}
-
-	host.TemplateIDs = templates
-
-	macroMaps := d.Get("macro").([]any)
+func generateHostMacrosFromResourceData(data *schema.ResourceData) []zabbix.Macro {
+	macroMaps := data.Get("macro").([]any)
 	var macros []zabbix.Macro
 	for _, macro := range macroMaps {
 		macroMap := macro.(map[string]any)
@@ -325,56 +233,21 @@ func createHostObj(d *schema.ResourceData, api *zabbix.API) (*zabbix.Host, error
 			},
 		)
 	}
-	host.Macros = macros
-	return &host, nil
+	return macros
 }
 
-func resourceZabbixHostCreate(context context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api := meta.(*zabbix.API)
-
-	host, err := createHostObj(d, api)
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	hosts := zabbix.Hosts{*host}
-
-	err = api.HostsCreate(hosts)
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	log.Printf("[DEBUG] Created host id is %s", hosts[0].HostID)
-
-	d.Set("host_id", hosts[0].HostID)
-	d.SetId(hosts[0].HostID)
-	readDiags := resourceZabbixHostRead(context, d, meta)
-	return readDiags
-}
-
-func resourceZabbixHostRead(context context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceZabbixHostRead(context context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	api := meta.(*zabbix.API)
 	var errors TerraformErrors
-
-	log.Printf("[DEBUG] Will read host with id %s", d.Get("host_id").(string))
-
-	host := &zabbix.Host{HostID: d.Id()}
+	host := &zabbix.Host{HostID: data.Id()}
 	err := api.ReadAPIObject(host)
-	log.Printf("[DEBUG] Read host: %+v\n", host)
-
 	if err != nil {
 		return diag.FromErr(err)
 	}
-
-	log.Printf("[DEBUG] Host name is %s", host.Name)
-
-	errors.addError(d.Set("host", host.Host))
-	errors.addError(d.Set("name", host.Name))
-
-	errors.addError(d.Set("monitored", host.Status == 0))
-
+	log.Printf("[DEBUG] Read host: %+v\n", host)
+	errors.addError(data.Set("host", host.Host))
+	errors.addError(data.Set("name", host.Name))
+	errors.addError(data.Set("monitored", host.Status == 0))
 	var macros []any
 	for _, macro := range host.Macros {
 		macros = append(macros, map[string]any{
@@ -382,43 +255,28 @@ func resourceZabbixHostRead(context context.Context, d *schema.ResourceData, met
 			"value": macro.Value,
 		})
 	}
-
-	errors.addError(d.Set("macro", macros))
+	errors.addError(data.Set("macro", macros))
 	params := zabbix.Params{
 		"output": "extend",
 		"hostids": []string{
-			d.Id(),
+			data.Id(),
 		},
 	}
-
 	templates, err := api.TemplatesGet(params)
-
 	if err != nil {
 		return diag.FromErr(err)
 	}
-
-	templateNames := make([]string, len(templates))
-
+	templateIDs := make([]string, len(templates))
 	for i, t := range templates {
-		templateNames[i] = t.Host
+		templateIDs[i] = t.TemplateID
 	}
-
-	errors.addError(d.Set("templates", templateNames))
-
-	groups, err := api.HostGroupsGet(params)
-
-	if err != nil {
-		return diag.FromErr(err)
+	errors.addError(data.Set("templates", templateIDs))
+	groupIDs := host.GroupIds
+	groups := make([]string, len(groupIDs))
+	for i, group := range groupIDs {
+		groups[i] = group.GroupID
 	}
-
-	groupNames := make([]string, len(groups))
-
-	for i, g := range groups {
-		groupNames[i] = g.Name
-	}
-
-	errors.addError(d.Set("groups", groupNames))
-
+	errors.addError(data.Set("groups", groups))
 	var interfaces []map[string]any
 	for _, hostInterface := range host.Interfaces {
 		interfaceType := HostInterfaceTypes.getStringType(int(hostInterface.Type))
@@ -435,36 +293,21 @@ func resourceZabbixHostRead(context context.Context, d *schema.ResourceData, met
 			"interface_id": hostInterface.InterfaceID,
 		})
 	}
-	errors.addError(d.Set("interfaces", interfaces))
-
+	errors.addError(data.Set("interfaces", interfaces))
 	return errors.getDiagnostics()
 }
 
-func resourceZabbixHostUpdate(context context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceZabbixHostUpdate(context context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	api := meta.(*zabbix.API)
-
-	host, err := createHostObj(d, api)
-
+	host, err := createHostObjectFromResourceData(data)
 	if err != nil {
 		return diag.FromErr(err)
 	}
-
-	host.HostID = d.Id()
-
-	////interfaces can't be updated, changes will trigger recreate
-	////sending previous values will also fail the update
-	//host.Interfaces = nil
-
-	hosts := zabbix.Hosts{*host}
-
-	err = api.HostsUpdate(hosts)
-
+	err = api.UpdateAPIObject(host)
 	if err != nil {
 		return diag.FromErr(err)
 	}
-
-	log.Printf("[DEBUG] Created host id is %s", hosts[0].HostID)
-	readDiags := resourceZabbixHostRead(context, d, meta)
+	readDiags := resourceZabbixHostRead(context, data, meta)
 	return readDiags
 }
 

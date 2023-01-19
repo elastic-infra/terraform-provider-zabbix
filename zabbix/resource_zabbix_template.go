@@ -92,10 +92,8 @@ func createTemplateObj(d *schema.ResourceData, api *zabbix.API) (*zabbix.Templat
 		UserMacros:      createZabbixMacro(d),
 		LinkedTemplates: createLinkedTemplate(d),
 	}
-	hostGroupIDs, err := getHostGroups(d, api)
-	if err != nil {
-		return nil, err
-	}
+	hostGroupIDs := generateHostGroupIDsFromResourceData(d)
+
 	if len(hostGroupIDs) == 0 {
 		hostGroupIDs = append(hostGroupIDs, zabbix.HostGroupID{
 			GroupID: "1",
