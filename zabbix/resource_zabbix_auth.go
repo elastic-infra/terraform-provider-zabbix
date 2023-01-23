@@ -200,12 +200,16 @@ func resourceZabbixAuthenticationUpdate(ctx context.Context, data *schema.Resour
 func resourceZabbixAuthenticationCreate(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	warning := diag.Diagnostic{
 		Summary: "The authentication_settings resource is a singleton that can only be read and updated, " +
-			"this will only read the resource into terraform state",
+			"this will read the resource into terraform state and update remote values to match your code",
 		Severity: diag.Warning,
 	}
 	readDiags := resourceZabbixAuthenticationRead(ctx, data, meta)
+	if readDiags.HasError() {
+		return readDiags
+	}
+	updateDiags := resourceZabbixAuthenticationUpdate(ctx, data, meta)
 	data.SetId("authentication_settings")
-	return append(readDiags, warning)
+	return append(updateDiags, warning)
 }
 
 func resourceZabbixAuthenticationRead(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
