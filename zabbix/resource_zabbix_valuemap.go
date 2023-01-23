@@ -6,6 +6,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"log"
 )
 
 var mappingTypeMap = EnumMap{
@@ -76,6 +77,7 @@ func resourceZabbixValueMapDelete(ctx context.Context, data *schema.ResourceData
 func resourceZabbixValueMapUpdate(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	api := meta.(*zabbix.API)
 	valueMap := createValueMapObjectFromResourceData(data)
+	valueMap.HostID = "" // can't have it as a param in update method
 	err := api.UpdateAPIObject(valueMap)
 	if err != nil {
 		return diag.FromErr(err)
@@ -96,6 +98,7 @@ func resourceZabbixValueMapRead(ctx context.Context, data *schema.ResourceData, 
 	errors.addError(err)
 	err = data.Set("host_id", valueMap.HostID)
 	errors.addError(err)
+	log.Printf("Read valuemap object: %+v\n", valueMap)
 	var mappings []map[string]any
 	for _, mapping := range valueMap.Mappings {
 		mappingMap := map[string]any{
@@ -124,10 +127,11 @@ func resourceZabbixValueMapCreate(ctx context.Context, data *schema.ResourceData
 
 func createValueMapObjectFromResourceData(d *schema.ResourceData) *zabbix.ValueMap {
 	valueMap := zabbix.ValueMap{
-		Name:     d.Get("name").(string),
-		UUID:     d.Get("uuid").(string),
-		Mappings: createValueMapMappingObject(d.Get("mapping").([]interface{})),
-		HostID:   d.Get("host_id").(string),
+		ValueMapID: d.Id(),
+		Name:       d.Get("name").(string),
+		UUID:       d.Get("uuid").(string),
+		Mappings:   createValueMapMappingObject(d.Get("mapping").([]interface{})),
+		HostID:     d.Get("host_id").(string),
 	}
 	return &valueMap
 }
