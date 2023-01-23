@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"log"
 	"strings"
 )
 
@@ -112,6 +113,7 @@ func resourceZabbixDeleteProxy(ctx context.Context, data *schema.ResourceData, m
 func resourceZabbixCreateProxy(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	api := meta.(*zabbix.API)
 	proxy, err := createProxyObjectFromResourceData(data)
+	log.Printf("Proxy object to create: %+v", proxy)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -150,13 +152,13 @@ func resourceZabbixReadProxy(ctx context.Context, data *schema.ResourceData, met
 	}
 	errors.addError(err)
 	useIp := false
-	proxyInterface, ok := proxy.Interface.(zabbix.ProxyInterface)
+	proxyInterface, ok := proxy.Interface.(*zabbix.ProxyInterface)
 	if ok && proxy.Interface != nil {
 		if proxyInterface.UseIP != 0 {
 			useIp = true
 		}
 		err = data.Set("interface", []map[string]any{{
-			"id":     proxyInterface.InterfaceID,
+			//"id":     proxyInterface.InterfaceID,
 			"dns":    proxyInterface.DNS,
 			"ip":     proxyInterface.IP,
 			"port":   proxyInterface.Port,
@@ -187,6 +189,9 @@ func createProxyObjectFromResourceData(data *schema.ResourceData) (proxy *zabbix
 		Interface:      proxyInterface,
 		MonitoredHosts: monitoredHosts,
 	}
+	if proxyInterface == nil {
+		proxy.Interface = []zabbix.ProxyInterface{}
+	}
 	return
 }
 
@@ -205,11 +210,11 @@ func createProxyInterfaceObjectFromResourceData(data *schema.ResourceData) (prox
 		return
 	}
 	proxyInterface = &zabbix.ProxyInterface{
-		InterfaceID: proxyInterfaceMap["id"].(string),
-		IP:          proxyInterfaceMap["ip"].(string),
-		DNS:         proxyInterfaceMap["dns"].(string),
-		Port:        proxyInterfaceMap["port"].(string),
-		UseIP:       useIP,
+		//InterfaceID: proxyInterfaceMap["id"].(string),
+		IP:    proxyInterfaceMap["ip"].(string),
+		DNS:   proxyInterfaceMap["dns"].(string),
+		Port:  proxyInterfaceMap["port"].(string),
+		UseIP: useIP,
 	}
 	return
 }
