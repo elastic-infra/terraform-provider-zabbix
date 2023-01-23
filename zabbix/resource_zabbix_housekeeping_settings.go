@@ -24,6 +24,11 @@ func resourceZabbixHousekeepingSettings() *schema.Resource {
 				Optional: true,
 				Computed: true,
 			},
+			"events_internal": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Computed: true,
+			},
 			//"events_service": {
 			//	Type:     schema.TypeString,
 			//	Optional: true,
@@ -143,12 +148,16 @@ func resourceZabbixHousekeepingDelete(ctx context.Context, data *schema.Resource
 func resourceZabbixHousekeepingCreate(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	warning := diag.Diagnostic{
 		Summary: "The housekeeping_settings resource is a singleton that can only be read and updated, " +
-			"this will only read the resource into terraform state",
+			"this will read the resource into terraform state and update remote values to match your code",
 		Severity: diag.Warning,
 	}
 	readDiags := resourceZabbixHousekeepingRead(ctx, data, meta)
+	if readDiags.HasError() {
+		return readDiags
+	}
+	updateDiags := resourceZabbixHousekeepingUpdate(ctx, data, meta)
 	data.SetId("housekeeping_settings")
-	return append(readDiags, warning)
+	return append(updateDiags, warning)
 }
 
 func resourceZabbixHousekeepingRead(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -159,6 +168,7 @@ func resourceZabbixHousekeepingRead(ctx context.Context, data *schema.ResourceDa
 		return diag.FromErr(err)
 	}
 	errors.addError(data.Set("events_mode", housekeeping.EventsMode))
+	errors.addError(data.Set("events_internal", housekeeping.EventsDataStoragePeriod))
 	errors.addError(data.Set("events_trigger", housekeeping.EventsTriggerStoragePeriod))
 	//errors.addError(data.Set("events_service", housekeeping.EventsService))
 	errors.addError(data.Set("events_discovery", housekeeping.EventsDiscoveryPeriod))
@@ -185,6 +195,7 @@ func resourceZabbixHousekeepingRead(ctx context.Context, data *schema.ResourceDa
 func createHousekeepingObjectFromResourceData(data *schema.ResourceData) *zabbix.HousekeepingSettings {
 	return &zabbix.HousekeepingSettings{
 		EventsMode:                 data.Get("events_mode").(int),
+		EventsDataStoragePeriod:    data.Get("events_internal").(string),
 		EventsTriggerStoragePeriod: data.Get("events_trigger").(string),
 		EventsDiscoveryPeriod:      data.Get("events_discovery").(string),
 		EventsAutoregPeriod:        data.Get("events_autoreg").(string),
