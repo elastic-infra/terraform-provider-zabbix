@@ -32,7 +32,6 @@ func resourceZabbixHost() *schema.Resource {
 			},
 			"name": {
 				Type:        schema.TypeString,
-				Required:    false,
 				Optional:    true,
 				Computed:    true,
 				Description: "Visible name of the host.",
@@ -42,8 +41,41 @@ func resourceZabbixHost() *schema.Resource {
 				Default:  true,
 				Optional: true,
 			},
+			"description": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"inventory_mode": {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Computed: true,
+			},
+			"ipmi_username": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"ipmi_password": {
+				Type:      schema.TypeString,
+				Optional:  true,
+				Sensitive: true,
+			},
+			"ipmi_auth_type": {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Computed: true,
+			},
+			"ipmi_privilege": {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Computed: true,
+			},
+			"proxy_host_id": {
+				Type:     schema.TypeString,
+				Computed: true,
+				Optional: true,
+			},
 			"interfaces": {
-				Type:     schema.TypeList,
+				Type:     schema.TypeSet,
 				Elem:     interfaceSchema,
 				Optional: true,
 			},
@@ -58,7 +90,7 @@ func resourceZabbixHost() *schema.Resource {
 				Optional: true,
 			},
 			"macro": {
-				Type:     schema.TypeList,
+				Type:     schema.TypeSet,
 				Optional: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -72,6 +104,11 @@ func resourceZabbixHost() *schema.Resource {
 						},
 					},
 				},
+			},
+			"tags": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
 			},
 		},
 	}
@@ -89,7 +126,8 @@ var interfaceSchema = &schema.Resource{
 		},
 		"main": {
 			Type:     schema.TypeBool,
-			Required: true,
+			Optional: true,
+			Default:  false,
 		},
 		"port": {
 			Type:     schema.TypeString,
@@ -105,15 +143,19 @@ var interfaceSchema = &schema.Resource{
 			Type:     schema.TypeString,
 			Computed: true,
 		},
-		"snmp_configs": {
+		"snmp_config": {
 			Type:     schema.TypeList,
 			Optional: true,
 			MaxItems: 1,
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"version": {
-						Type:     schema.TypeInt,
+						Type:     schema.TypeString,
 						Required: true,
+					},
+					"bulk": {
+						Type:     schema.TypeString,
+						Optional: true,
 					},
 					"community": {
 						Type:     schema.TypeString,
@@ -146,10 +188,17 @@ func resourceZabbixHostCreate(context context.Context, data *schema.ResourceData
 
 func createHostObjectFromResourceData(data *schema.ResourceData) (*zabbix.Host, error) {
 	host := zabbix.Host{
-		HostID: data.Id(),
-		Host:   data.Get("host").(string),
-		Name:   data.Get("name").(string),
-		Status: 0,
+		HostID:        data.Id(),
+		Host:          data.Get("host").(string),
+		Name:          data.Get("name").(string),
+		Status:        0,
+		Description:   data.Get("description").(string),
+		InventoryMode: data.Get("inventory_mode").(int),
+		IPMIUsername:  data.Get("ipmi_username").(string),
+		IPMIPassword:  data.Get("ipmi_password").(string),
+		IPMIAuthType:  data.Get("ipmi_auth_type").(int),
+		IPMIPrivilege: data.Get("ipmi_privilege").(int),
+		ProxyHostID:   data.Get("proxy_host_id").(string),
 	}
 	//0 is monitored, 1 - unmonitored host
 	if !data.Get("monitored").(bool) {
@@ -163,22 +212,24 @@ func createHostObjectFromResourceData(data *schema.ResourceData) (*zabbix.Host, 
 	host.Interfaces = interfaces
 	host.TemplateIDs = generateTemplateIDsFromResourceData(data)
 	host.Macros = generateHostMacrosFromResourceData(data)
+	host.Tags = generateHostTagsFromResourceData(data)
 	return &host, nil
 }
 
 func generateInterfacesFromResourceData(d *schema.ResourceData) ([]zabbix.HostInterface, error) {
-	interfaceCount := d.Get("interfaces.#").(int)
-	interfaces := make(zabbix.HostInterfaces, interfaceCount)
-	for i := 0; i < interfaceCount; i++ {
-		prefix := fmt.Sprintf("interfaces.%d.", i)
-		interfaceType := d.Get(prefix + "type").(string)
+	interfaceBlocks := d.Get("interfaces").(*schema.Set).List()
+	interfaces := make(zabbix.HostInterfaces, len(interfaceBlocks))
+
+	for i, interfaceBlock := range interfaceBlocks {
+		interfaceMap := interfaceBlock.(map[string]any)
+		interfaceType := interfaceMap["type"].(string)
 		typeID, ok := HostInterfaceTypes[interfaceType]
 		if !ok {
 			return nil, fmt.Errorf("%s isnt valid interface type", interfaceType)
 		}
-		ip := d.Get(prefix + "ip").(string)
-		dns := d.Get(prefix + "dns").(string)
-		interfaceId := d.Get(prefix + "interface_id").(string)
+		ip := interfaceMap["ip"].(string)
+		dns := interfaceMap["dns"].(string)
+		interfaceId := interfaceMap["interface_id"].(string)
 		if ip == "" && dns == "" {
 			return nil, fmt.Errorf("atleast one of two dns or ip must be set")
 		}
@@ -187,7 +238,7 @@ func generateInterfacesFromResourceData(d *schema.ResourceData) ([]zabbix.HostIn
 			useip = 0
 		}
 		main := 1
-		if !d.Get(prefix + "main").(bool) {
+		if !interfaceMap["main"].(bool) {
 			main = 0
 		}
 		interfaces[i] = zabbix.HostInterface{
@@ -195,9 +246,18 @@ func generateInterfacesFromResourceData(d *schema.ResourceData) ([]zabbix.HostIn
 			IP:          ip,
 			DNS:         dns,
 			Main:        main,
-			Port:        d.Get(prefix + "port").(string),
+			Port:        interfaceMap["port"].(string),
 			Type:        zabbix.InterfaceType(typeID),
 			UseIP:       useip,
+		}
+		SNMPConfigList := interfaceMap["snmp_config"].([]any)
+
+		if len(SNMPConfigList) != 0 {
+			SNMPConfig := SNMPConfigList[0].(map[string]any)
+			interfaces[i].Details = zabbix.SNMPDetails{
+				Version:   SNMPConfig["version"].(string),
+				Community: SNMPConfig["community"].(string),
+			}
 		}
 	}
 	return interfaces, nil
@@ -222,18 +282,30 @@ func generateTemplateIDsFromResourceData(d *schema.ResourceData) []zabbix.Templa
 }
 
 func generateHostMacrosFromResourceData(data *schema.ResourceData) []zabbix.Macro {
-	macroMaps := data.Get("macro").([]any)
-	var macros []zabbix.Macro
-	for _, macro := range macroMaps {
+	macroMaps := data.Get("macro").(*schema.Set).List()
+	macros := make([]zabbix.Macro, len(macroMaps))
+	for i, macro := range macroMaps {
 		macroMap := macro.(map[string]any)
-		macros = append(macros,
-			zabbix.Macro{
-				MacroName: macroMap["name"].(string),
-				Value:     macroMap["value"].(string),
-			},
-		)
+		macros[i] = zabbix.Macro{
+			MacroName: macroMap["name"].(string),
+			Value:     macroMap["value"].(string),
+		}
 	}
 	return macros
+}
+
+func generateHostTagsFromResourceData(data *schema.ResourceData) []zabbix.HostTag {
+	tagMaps := data.Get("tags").(map[string]any)
+	tags := make([]zabbix.HostTag, len(tagMaps))
+	i := 0
+	for tag, value := range tagMaps {
+		tags[i] = zabbix.HostTag{
+			Tag:   tag,
+			Value: value.(string),
+		}
+		i++
+	}
+	return tags
 }
 
 func resourceZabbixHostRead(context context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -248,6 +320,13 @@ func resourceZabbixHostRead(context context.Context, data *schema.ResourceData, 
 	errors.addError(data.Set("host", host.Host))
 	errors.addError(data.Set("name", host.Name))
 	errors.addError(data.Set("monitored", host.Status == 0))
+	errors.addError(data.Set("description", host.Description))
+	errors.addError(data.Set("inventory_mode", host.InventoryMode))
+	errors.addError(data.Set("ipmi_username", host.IPMIUsername))
+	errors.addError(data.Set("ipmi_password", host.IPMIPassword))
+	errors.addError(data.Set("ipmi_auth_type", host.IPMIAuthType))
+	errors.addError(data.Set("ipmi_privilege", host.IPMIPrivilege))
+	errors.addError(data.Set("proxy_host_id", host.ProxyHostID))
 	var macros []any
 	for _, macro := range host.Macros {
 		macros = append(macros, map[string]any{
@@ -277,24 +356,40 @@ func resourceZabbixHostRead(context context.Context, data *schema.ResourceData, 
 		groups[i] = group.GroupID
 	}
 	errors.addError(data.Set("groups", groups))
-	var interfaces []map[string]any
-	for _, hostInterface := range host.Interfaces {
+	errors.addError(readInterfacesIntoState(host.Interfaces, data))
+	tags := make(map[string]string)
+	for _, tag := range host.Tags {
+		tags[tag.Tag] = tag.Value
+	}
+	errors.addError(data.Set("tags", tags))
+	return errors.getDiagnostics()
+}
+
+func readInterfacesIntoState(hostInterfaces []zabbix.HostInterface, data *schema.ResourceData) error {
+	interfaces := make([]map[string]any, len(hostInterfaces))
+	for i, hostInterface := range hostInterfaces {
 		interfaceType := HostInterfaceTypes.getStringType(int(hostInterface.Type))
 		isMain := true
 		if hostInterface.Main == 0 {
 			isMain = false
 		}
-		interfaces = append(interfaces, map[string]any{
+		interfaces[i] = map[string]any{
 			"dns":          hostInterface.DNS,
 			"ip":           hostInterface.IP,
 			"main":         isMain,
 			"port":         hostInterface.Port,
 			"type":         interfaceType,
 			"interface_id": hostInterface.InterfaceID,
-		})
+		}
+		SNMPDetails, ok := hostInterface.Details.(map[string]any)
+		if ok {
+			interfaces[i]["snmp_config"] = []map[string]any{{
+				"version":   SNMPDetails["version"],
+				"community": SNMPDetails["community"],
+			}}
+		}
 	}
-	errors.addError(data.Set("interfaces", interfaces))
-	return errors.getDiagnostics()
+	return data.Set("interfaces", interfaces)
 }
 
 func resourceZabbixHostUpdate(context context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
