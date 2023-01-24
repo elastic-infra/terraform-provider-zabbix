@@ -2,9 +2,12 @@ package zabbix
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"log"
+	"strings"
 
 	"github.com/claranet/go-zabbix-api"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -16,6 +19,30 @@ var HostInterfaceTypes = EnumMap{
 	"snmp":  int(zabbix.SNMPInterface),
 	"ipmi":  int(zabbix.IPMIInterface),
 	"jmx":   int(zabbix.JMXInterface),
+}
+
+var SNMP3SecurityLevels = EnumMap{
+	"noauth_nopriv": int(zabbix.SNMP3NoAuthNoPriv),
+	"auth_nopriv":   int(zabbix.SNMP3AuthNoPriv),
+	"auth_priv":     int(zabbix.SNMP3AuthPriv),
+}
+
+var SNMP3AuthProtocols = EnumMap{
+	"MD5":    int(zabbix.SNMP3MD5Auth),
+	"SHA1":   int(zabbix.SNMP3SHA1Auth),
+	"SHA224": int(zabbix.SNMP3SHA224Auth),
+	"SHA256": int(zabbix.SNMP3SHA256Auth),
+	"SHA384": int(zabbix.SNMP3SHA384Auth),
+	"SHA512": int(zabbix.SNMP3SHA512Auth),
+}
+
+var SNMP3PrivProtocol = EnumMap{
+	"DES":     int(zabbix.SNMP3DESPriv),
+	"AES128":  int(zabbix.SNMP3AES128Priv),
+	"AES192":  int(zabbix.SNMP3AES192Priv),
+	"AES256":  int(zabbix.SNMP3AES256Priv),
+	"AES192C": int(zabbix.SNMP3AES192CPriv),
+	"AES256C": int(zabbix.SNMP3AES256CPriv),
 }
 
 func resourceZabbixHost() *schema.Resource {
@@ -135,9 +162,10 @@ var interfaceSchema = &schema.Resource{
 			Default:  "10050",
 		},
 		"type": {
-			Type:     schema.TypeString,
-			Optional: true,
-			Default:  "agent",
+			Type:             schema.TypeString,
+			Optional:         true,
+			Default:          "agent",
+			ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice(HostInterfaceTypes.types(), true)),
 		},
 		"interface_id": {
 			Type:     schema.TypeString,
@@ -154,16 +182,52 @@ var interfaceSchema = &schema.Resource{
 						Required: true,
 					},
 					"bulk": {
-						Type:     schema.TypeString,
+						Type:     schema.TypeBool,
 						Optional: true,
+						Computed: true,
 					},
 					"community": {
 						Type:     schema.TypeString,
 						Optional: true,
 					},
 					"snmpv3_config": {
-						Type:     schema.TypeString,
+						Type:     schema.TypeSet,
 						Optional: true,
+						MaxItems: 1,
+						Elem: &schema.Resource{
+							Schema: map[string]*schema.Schema{
+								"security_name": {
+									Type:     schema.TypeString,
+									Optional: true,
+								},
+								"security_level": {
+									Type:             schema.TypeString,
+									Optional:         true,
+									Computed:         true,
+									ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice(SNMP3SecurityLevels.types(), true)),
+								},
+								"auth_passphrase": {
+									Type:     schema.TypeString,
+									Optional: true,
+								},
+								"auth_protocol": {
+									Type:             schema.TypeString,
+									Optional:         true,
+									Computed:         true,
+									ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice(SNMP3AuthProtocols.types(), true)),
+								},
+								"priv_protocol": {
+									Type:             schema.TypeString,
+									Optional:         true,
+									Computed:         true,
+									ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice(SNMP3PrivProtocol.types(), true)),
+								},
+								"context_name": {
+									Type:     schema.TypeString,
+									Optional: true,
+								},
+							},
+						},
 					},
 				},
 			},
@@ -223,7 +287,7 @@ func generateInterfacesFromResourceData(d *schema.ResourceData) ([]zabbix.HostIn
 	for i, interfaceBlock := range interfaceBlocks {
 		interfaceMap := interfaceBlock.(map[string]any)
 		interfaceType := interfaceMap["type"].(string)
-		typeID, ok := HostInterfaceTypes[interfaceType]
+		typeID, ok := HostInterfaceTypes[strings.ToLower(interfaceType)]
 		if !ok {
 			return nil, fmt.Errorf("%s isnt valid interface type", interfaceType)
 		}
@@ -250,17 +314,48 @@ func generateInterfacesFromResourceData(d *schema.ResourceData) ([]zabbix.HostIn
 			Type:        zabbix.InterfaceType(typeID),
 			UseIP:       useip,
 		}
-		SNMPConfigList := interfaceMap["snmp_config"].([]any)
 
-		if len(SNMPConfigList) != 0 {
+		SNMPConfigList := interfaceMap["snmp_config"].([]any)
+		if typeID == int(zabbix.SNMPInterface) && len(SNMPConfigList) == 0 {
+			return nil, fmt.Errorf("snmp_config block must be filled for %s interface type", HostInterfaceTypes.getStringType(typeID))
+		} else if len(SNMPConfigList) > 0 {
 			SNMPConfig := SNMPConfigList[0].(map[string]any)
-			interfaces[i].Details = zabbix.SNMPDetails{
-				Version:   SNMPConfig["version"].(string),
-				Community: SNMPConfig["community"].(string),
+			SNMPDetails, err := generateSNMPDetails(SNMPConfig)
+			if err != nil {
+				return nil, err
 			}
+			interfaces[i].Details = SNMPDetails
 		}
 	}
 	return interfaces, nil
+}
+
+func generateSNMPDetails(SNMPConfig map[string]any) (*zabbix.SNMPDetails, error) {
+	bulk := 0
+	if SNMPConfig["bulk"].(bool) {
+		bulk = 1
+	}
+	version := SNMPConfig["version"].(string)
+	community := SNMPConfig["community"].(string)
+	if (version == "1" || version == "2") && community == "" {
+		return nil, fmt.Errorf("snmp_config.snmpv3_config.community must be defined for snmp version %s", version)
+	}
+	SNMPDetails := &zabbix.SNMPDetails{
+		Version:   version,
+		Community: community,
+		Bulk:      bulk,
+	}
+	SNMP3ConfigList := SNMPConfig["snmpv3_config"].(*schema.Set).List()
+	if len(SNMP3ConfigList) != 0 {
+		SNMP3Config := SNMP3ConfigList[0].(map[string]any)
+		SNMPDetails.SecurityName = SNMP3Config["security_name"].(string)
+		SNMPDetails.SecurityLevel = SNMP3SecurityLevels[strings.ToLower(SNMP3Config["security_level"].(string))]
+		SNMPDetails.AuthPassphrase = SNMP3Config["auth_passphrase"].(string)
+		SNMPDetails.AuthProtocol = SNMP3AuthProtocols[strings.ToLower(SNMP3Config["auth_protocol"].(string))]
+		SNMPDetails.PrivProtocol = SNMP3PrivProtocol[strings.ToLower(SNMP3Config["priv_protocol"].(string))]
+		SNMPDetails.ContextName = SNMP3Config["context_name"].(string)
+	}
+	return SNMPDetails, nil
 }
 
 func generateHostGroupIDsFromResourceData(data *schema.ResourceData) []zabbix.HostGroupID {
@@ -381,11 +476,33 @@ func readInterfacesIntoState(hostInterfaces []zabbix.HostInterface, data *schema
 			"type":         interfaceType,
 			"interface_id": hostInterface.InterfaceID,
 		}
-		SNMPDetails, ok := hostInterface.Details.(map[string]any)
+		SNMPDetailsMap, ok := hostInterface.Details.(map[string]any)
+		SNMPDetailsBytes, err := json.Marshal(SNMPDetailsMap)
+		if err != nil {
+			return err
+		}
+		var SNMPDetails zabbix.SNMPDetails
+		err = json.Unmarshal(SNMPDetailsBytes, &SNMPDetails)
+		if err != nil {
+			return err
+		}
 		if ok {
+			bulk := false
+			if SNMPDetails.Bulk != 0 {
+				bulk = true
+			}
 			interfaces[i]["snmp_config"] = []map[string]any{{
-				"version":   SNMPDetails["version"],
-				"community": SNMPDetails["community"],
+				"version":   SNMPDetails.Version,
+				"bulk":      bulk,
+				"community": SNMPDetails.Community,
+				"snmpv3_config": []map[string]any{{
+					"security_name":   SNMPDetails.SecurityName,
+					"security_level":  SNMP3SecurityLevels.getStringType(SNMPDetails.SecurityLevel),
+					"auth_passphrase": SNMPDetails.AuthPassphrase,
+					"auth_protocol":   SNMP3AuthProtocols.getStringType(SNMPDetails.AuthProtocol),
+					"priv_protocol":   SNMP3PrivProtocol.getStringType(SNMPDetails.PrivProtocol),
+					"context_name":    SNMPDetails.ContextName,
+				}},
 			}}
 		}
 	}
