@@ -131,6 +131,7 @@ func resourceZabbixReadProxy(ctx context.Context, data *schema.ResourceData, met
 	api := meta.(*zabbix.API)
 	proxy := &zabbix.Proxy{ProxyID: data.Id()}
 	err := api.ReadAPIObject(proxy)
+	log.Printf("Read Proxy: %+v\n", proxy)
 	errors.addError(err)
 	err = data.Set("name", proxy.Name)
 	errors.addError(err)
@@ -152,16 +153,16 @@ func resourceZabbixReadProxy(ctx context.Context, data *schema.ResourceData, met
 	}
 	errors.addError(err)
 	useIp := false
-	proxyInterface, ok := proxy.Interface.(*zabbix.ProxyInterface)
+	proxyInterface, ok := proxy.Interface.(map[string]any)
 	if ok && proxy.Interface != nil {
-		if proxyInterface.UseIP != 0 {
+		if proxyInterface["useip"] != "0" {
 			useIp = true
 		}
 		err = data.Set("interface", []map[string]any{{
 			//"id":     proxyInterface.InterfaceID,
-			"dns":    proxyInterface.DNS,
-			"ip":     proxyInterface.IP,
-			"port":   proxyInterface.Port,
+			"dns":    proxyInterface["dns"],
+			"ip":     proxyInterface["ip"],
+			"port":   proxyInterface["port"],
 			"use_ip": useIp,
 		}})
 		errors.addError(err)
