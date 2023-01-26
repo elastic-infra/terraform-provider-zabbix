@@ -1,69 +1,46 @@
 package zabbix
 
 import (
+	"context"
 	"github.com/claranet/go-zabbix-api"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"log"
 )
 
-/* Add a converter from Type String to Map
-Mapping match type. For type equal 0,1,2,3,4 value field cannot be empty, for type 5 value field should be empty.
-
-Possible values:
-0 - (default) exact match ;
-1 - mapping will be applied if value is greater or equal1;
-2 - mapping will be applied if value is less or equal1;
-3 - mapping will be applied if value is in range (ranges are inclusive), allow to define multiple ranges separated by comma character1;
-4 - mapping will be applied if value match regular expression2;
-5 - default value, mapping will be applied if no other match were found.
-
-
-*/
-type ValueMapType struct {
-	ValueMapID       string       `json:"valuemapid,omitempty"`
-	ValueMapName     string       `json:"name"`
-	ValueMapMappings mappingsList `json:"mappings"`
-	ValueMapHostID   string       `json:"hostid"`
-	ValueMapUUID     string       `json:"uuid,omitempty"`
+var mappingTypeMap = EnumMap{
+	"exact_match":      int(zabbix.ExactMatchMapping),
+	"greater_or_equal": int(zabbix.GreaterOrEqualMapping),
+	"less_or_equal":    int(zabbix.LessOrEqualMapping),
+	"regex_match":      int(zabbix.RegexMatchMapping),
+	"default_match":    int(zabbix.DefaultValueMapping),
 }
-type mappings struct {
-	Type     int    `json:"type,omitempty"`
-	Value    string `json:"value"`
-	Newvalue string `json:"newvalue"`
-}
-
-type mappingsList []mappings
-
-// ValueMaps is an array of ValueMapType
-type ValueMaps []ValueMapType
 
 func resourceZabbixValueMap() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceZabbixValueMapCreate,
-		Read:   resourceZabbixValueMapRead,
-		Exists: resourceZabbixValueMapExists,
-		Update: resourceZabbixValueMapUpdate,
-		Delete: resourceZabbixValueMapDelete,
-		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
-		},
+		CreateContext: resourceZabbixValueMapCreate,
+		ReadContext:   resourceZabbixValueMapRead,
+		UpdateContext: resourceZabbixValueMapUpdate,
+		DeleteContext: resourceZabbixValueMapDelete,
 		Schema: map[string]*schema.Schema{
-			"name": &schema.Schema{
+			"name": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"uuid": &schema.Schema{
+			"uuid": {
 				Type:        schema.TypeString,
-				Optional:    true,
+				Computed:    true,
 				Description: "Universal unique identifier, used for linking imported value maps to already existing ones. Used only for value maps on templates. Auto-generated, if not given",
 			},
-			"linked_template": &schema.Schema{
+			"host_id": {
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 			},
 			"mapping": {
 				Type:     schema.TypeList,
-				Optional: true,
+				Required: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"value": {
@@ -75,8 +52,9 @@ func resourceZabbixValueMap() *schema.Resource {
 							Required: true,
 						},
 						"type": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:             schema.TypeString,
+							Optional:         true,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice(mappingTypeMap.types(), false)),
 						},
 					},
 				},
@@ -85,64 +63,88 @@ func resourceZabbixValueMap() *schema.Resource {
 	}
 }
 
-func resourceZabbixValueMapDelete(d *schema.ResourceData, meta interface{}) error {
-	return nil
-}
-
-func resourceZabbixValueMapUpdate(d *schema.ResourceData, meta interface{}) error {
-	return nil
-}
-
-func resourceZabbixValueMapExists(d *schema.ResourceData, meta interface{}) (bool, error) {
-	return true, nil
-}
-
-func resourceZabbixValueMapRead(d *schema.ResourceData, meta interface{}) error {
-	return nil
-}
-
-func resourceZabbixValueMapCreate(d *schema.ResourceData, meta interface{}) error {
-	valueMap := createValueMapObject(d)
-
-	return createRetry(d, meta, createValueMap, *valueMap, resourceZabbixValueMapRead)
-
-}
-
-func createValueMap(valemap interface{}, api *zabbix.API) (id string, err error) {
-	valueMaps := zabbix.ValueMaps{valemap.(zabbix.ValueMapType)}
-
-	err = api.ValueMapCreate(valueMaps)
+func resourceZabbixValueMapDelete(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	api := meta.(*zabbix.API)
+	valueMap := &zabbix.ValueMap{ValueMapID: data.Id()}
+	err := api.DeleteAPIObject(valueMap)
 	if err != nil {
-		return
+		return diag.FromErr(err)
 	}
-	id = valueMaps[0].ValueMapID
-	return
+	data.SetId("")
+	return nil
 }
-func createValueMapObject(d *schema.ResourceData) *zabbix.ValueMapType {
-	log.Printf("[DEBUG] trigger expression: %s", d.Get("name").(string))
-	log.Printf("[DEBUG] trigger expression: %s", d.Get("uuid").(string))
-	log.Printf("[DEBUG] trigger expression: %s", d.Get("linked_template").(string))
 
-	valueMap := zabbix.ValueMapType{
-		ValueMapName:     d.Get("name").(string),
-		ValueMapUUID:     d.Get("uuid").(string),
-		ValueMapMappings: createValueMapMappingObject(d.Get("mapping").([]interface{})),
-		ValueMapHostID:   d.Get("linked_template").(string),
+func resourceZabbixValueMapUpdate(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	api := meta.(*zabbix.API)
+	valueMap := createValueMapObjectFromResourceData(data)
+	valueMap.HostID = "" // can't have it as a param in update method
+	err := api.UpdateAPIObject(valueMap)
+	if err != nil {
+		return diag.FromErr(err)
 	}
+	readDiags := resourceZabbixValueMapRead(ctx, data, meta)
+	return readDiags
+}
 
+func resourceZabbixValueMapRead(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	var errors TerraformErrors
+	api := meta.(*zabbix.API)
+	valueMap := zabbix.ValueMap{ValueMapID: data.Id()}
+	err := api.ReadAPIObject(&valueMap)
+	errors.addError(err)
+	err = data.Set("name", valueMap.Name)
+	errors.addError(err)
+	err = data.Set("uuid", valueMap.UUID)
+	errors.addError(err)
+	err = data.Set("host_id", valueMap.HostID)
+	errors.addError(err)
+	log.Printf("Read valuemap object: %+v\n", valueMap)
+	var mappings []map[string]any
+	for _, mapping := range valueMap.Mappings {
+		mappingMap := map[string]any{
+			"value":     mapping.Value,
+			"new_value": mapping.Newvalue,
+			"type":      mappingTypeMap.getStringType(int(mapping.Type)),
+		}
+		mappings = append(mappings, mappingMap)
+	}
+	err = data.Set("mapping", mappings)
+	errors.addError(err)
+	return errors.getDiagnostics()
+}
+
+func resourceZabbixValueMapCreate(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	api := meta.(*zabbix.API)
+	valueMap := createValueMapObjectFromResourceData(data)
+	err := api.CreateAPIObject(valueMap)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	data.SetId(valueMap.GetID())
+	readDiags := resourceZabbixValueMapRead(ctx, data, meta)
+	return readDiags
+}
+
+func createValueMapObjectFromResourceData(d *schema.ResourceData) *zabbix.ValueMap {
+	valueMap := zabbix.ValueMap{
+		ValueMapID: d.Id(),
+		Name:       d.Get("name").(string),
+		UUID:       d.Get("uuid").(string),
+		Mappings:   createValueMapMappingObject(d.Get("mapping").([]interface{})),
+		HostID:     d.Get("host_id").(string),
+	}
 	return &valueMap
 }
 
-func createValueMapMappingObject(i []interface{}) (mappingsList zabbix.MappingsList) {
+func createValueMapMappingObject(i []interface{}) (mappingsList []zabbix.ValueMapMapping) {
 	for _, v := range i {
-		m := v.(map[string]interface{})
-		valueMap := zabbix.Mapping{
-			Type:     0,
+		m := v.(map[string]any)
+		valueMap := zabbix.ValueMapMapping{
+			Type:     zabbix.ValueMapMappingType(mappingTypeMap[m["type"].(string)]),
 			Value:    m["value"].(string),
 			Newvalue: m["new_value"].(string),
 		}
 		mappingsList = append(mappingsList, valueMap)
 	}
-
 	return mappingsList
 }

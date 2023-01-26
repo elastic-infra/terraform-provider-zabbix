@@ -1,173 +1,262 @@
 package zabbix
 
 import (
+	"context"
 	"github.com/claranet/go-zabbix-api"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"log"
 )
 
-func resourceZabbixAuth() *schema.Resource {
+func resourceZabbixAuthenticationSettings() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceZabbixAuthCreate,
-		Read:   resourceZabbixAuthRead,
-		//Exists: resourceZabbixAuthExists,
-		Update: resourceZabbixAuthUpdate,
-		Delete: resourceZabbixAuthDelete,
-		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
-		},
+		CreateContext: resourceZabbixAuthenticationCreate,
+		ReadContext:   resourceZabbixAuthenticationRead,
+		UpdateContext: resourceZabbixAuthenticationUpdate,
+		DeleteContext: resourceZabbixAuthenticationDelete,
 		Schema: map[string]*schema.Schema{
 			"authentication_type": {
 				Type:        schema.TypeInt,
 				Optional:    true,
+				Computed:    true,
 				Description: "Type Of Authentication to Use LDAP Must be configure before using this field",
 			},
 			"http_auth_enabled": {
 				Type:        schema.TypeInt,
 				Optional:    true,
+				Computed:    true,
 				Description: "Enable Http Auth True/False",
 			},
 			"http_login_form": {
 				Type:     schema.TypeInt,
 				Optional: true,
+				Computed: true,
 			},
 			"http_strip_domains": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
 			"http_case_sensitive": {
 				Type:     schema.TypeInt,
 				Optional: true,
+				Computed: true,
 			},
-			"ldap_configured": &schema.Schema{
+			"ldap_configured": {
 				Type:     schema.TypeInt,
 				Optional: true,
+				Computed: true,
 			},
-			"ldap_host": &schema.Schema{
+			"ldap_host": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
-			"ldap_port": &schema.Schema{
+			"ldap_port": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
-			"ldap_base_dn": &schema.Schema{
+			"ldap_base_dn": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
-			"ldap_search_attribute": &schema.Schema{
+			"ldap_search_attribute": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
-			"ldap_bind_dn": &schema.Schema{
+			"ldap_bind_dn": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
-			"ldap_case_sensitive": &schema.Schema{
+			"ldap_case_sensitive": {
 				Type:     schema.TypeInt,
 				Optional: true,
+				Computed: true,
 			},
-			"ldap_bind_password": &schema.Schema{
+			"ldap_bind_password": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
-			"saml_auth_enabled": &schema.Schema{
+			"saml_auth_enabled": {
 				Type:        schema.TypeInt,
 				Optional:    true,
+				Computed:    true,
 				Description: "Enable SAML Auth True/False",
 			},
-			"saml_idp_entityid": &schema.Schema{
+			"saml_idp_entityid": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
-			"saml_sso_url": &schema.Schema{
+			"saml_sso_url": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
-			"saml_slo_url": &schema.Schema{
+			"saml_slo_url": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
-			"saml_username_attribute": &schema.Schema{
+			"saml_username_attribute": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
-			"saml_sp_entityid": &schema.Schema{
+			"saml_sp_entityid": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
-			"saml_nameid_format": &schema.Schema{
+			"saml_nameid_format": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
-			"saml_sign_messages": &schema.Schema{
+			"saml_sign_messages": {
 				Type:     schema.TypeInt,
 				Optional: true,
+				Computed: true,
 			},
-			"saml_sign_assertions": &schema.Schema{
+			"saml_sign_assertions": {
 				Type:     schema.TypeInt,
 				Optional: true,
+				Computed: true,
 			},
-			"saml_sign_authn_requests": &schema.Schema{
+			"saml_sign_authn_requests": {
 				Type:     schema.TypeInt,
 				Optional: true,
+				Computed: true,
 			},
-			"saml_sign_logout_requests": &schema.Schema{
+			"saml_sign_logout_requests": {
 				Type:     schema.TypeInt,
 				Optional: true,
+				Computed: true,
 			},
-			"saml_sign_logout_responses": &schema.Schema{
+			"saml_sign_logout_responses": {
 				Type:     schema.TypeInt,
 				Optional: true,
+				Computed: true,
 			},
-			"saml_encrypt_nameid": &schema.Schema{
+			"saml_encrypt_nameid": {
 				Type:     schema.TypeInt,
 				Optional: true,
+				Computed: true,
 			},
-			"saml_encrypt_assertions": &schema.Schema{
+			"saml_encrypt_assertions": {
 				Type:     schema.TypeInt,
 				Optional: true,
+				Computed: true,
 			},
-			"ldap_userdirectoryid": &schema.Schema{
+			"ldap_userdirectoryid": {
 				Type:     schema.TypeInt,
 				Optional: true,
+				Computed: true,
 			},
-			"saml_case_sensitive": &schema.Schema{
+			"saml_case_sensitive": {
 				Type:     schema.TypeInt,
 				Optional: true,
+				Computed: true,
 			},
-			"passwd_min_length": &schema.Schema{
+			"passwd_min_length": {
 				Type:     schema.TypeInt,
 				Optional: true,
+				Computed: true,
 			},
-			"passwd_check_rules": &schema.Schema{
-				Type:     schema.TypeString,
+			"passwd_check_rules": {
+				Type:     schema.TypeInt,
 				Optional: true,
+				Computed: true,
 			},
 		},
 	}
 }
 
-func resourceZabbixAuthCreate(d *schema.ResourceData, meta interface{}) error {
-	auth := createAuthObject(d)
-	createAuth(auth, meta)
-	log.Printf("[DEBUG] Updated Auth Settings")
-	d.Set("auth_id", "1")
-	d.SetId("1")
-	return nil
+func resourceZabbixAuthenticationDelete(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	warning := diag.Diagnostic{
+		Summary: "The authentication_settings resource is a singleton that can only be read and updated, " +
+			"this will only delete the resource from terraform state",
+		Severity: diag.Warning,
+	}
+	data.SetId("")
+	return diag.Diagnostics{warning}
 }
 
-func createAuthObject(d *schema.ResourceData) zabbix.AuthPrototype {
+func resourceZabbixAuthenticationUpdate(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	api := meta.(*zabbix.API)
+	authSettings := createAuthObjectFromResourceData(data)
+	err := api.AuthSet(authSettings)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	readDiags := resourceZabbixAuthenticationRead(ctx, data, meta)
+	return readDiags
+}
 
-	auth := zabbix.AuthPrototype{
-		AuthenticationType:      d.Get("authentication_type").(int),
-		HttpAuthEnabled:         d.Get("http_auth_enabled").(int),
-		HttpLoginForm:           d.Get("http_login_form").(int),
-		HttpStripDomains:        d.Get("http_strip_domains").(string),
-		HttpCaseSensitive:       d.Get("http_case_sensitive").(int),
-		LdapConfigured:          d.Get("ldap_configured").(int),
-		LdapCaseSensitive:       d.Get("ldap_case_sensitive").(int),
-		LdapUserdirectoryid:     d.Get("ldap_userdirectoryid").(int),
+func resourceZabbixAuthenticationCreate(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	warning := diag.Diagnostic{
+		Summary: "The authentication_settings resource is a singleton that can only be read and updated, " +
+			"this will read the resource into terraform state and update remote values to match your code",
+		Severity: diag.Warning,
+	}
+	readDiags := resourceZabbixAuthenticationRead(ctx, data, meta)
+	if readDiags.HasError() {
+		return readDiags
+	}
+	updateDiags := resourceZabbixAuthenticationUpdate(ctx, data, meta)
+	data.SetId("authentication_settings")
+	return append(updateDiags, warning)
+}
+
+func resourceZabbixAuthenticationRead(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	var errors TerraformErrors
+	api := meta.(*zabbix.API)
+	authentication, err := api.AuthGet()
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	errors.addError(data.Set("authentication_type", authentication.AuthenticationType))
+	errors.addError(data.Set("http_auth_enabled", authentication.HttpAuthEnabled))
+	errors.addError(data.Set("http_login_form", authentication.HttpLoginForm))
+	errors.addError(data.Set("http_strip_domains", authentication.HttpStripDomains))
+	errors.addError(data.Set("http_case_sensitive", authentication.HttpCaseSensitive))
+	errors.addError(data.Set("ldap_configured", authentication.LdapConfigured))
+	errors.addError(data.Set("ldap_case_sensitive", authentication.LdapCaseSensitive))
+	//errors.addError(data.Set("ldap_userdirectoryid", authentication.LdapUserdirectoryid))
+	errors.addError(data.Set("saml_auth_enabled", authentication.SamlAuthEnabled))
+	errors.addError(data.Set("saml_idp_entityid", authentication.SamlIdpEntityid))
+	errors.addError(data.Set("saml_sso_url", authentication.SamlSsoUrl))
+	errors.addError(data.Set("saml_slo_url", authentication.SamlSloUrl))
+	errors.addError(data.Set("saml_username_attribute", authentication.SamlUsernameAttribute))
+	errors.addError(data.Set("saml_sp_entityid", authentication.SamlSpEntityid))
+	errors.addError(data.Set("saml_nameid_format", authentication.SamlNameidFormat))
+	errors.addError(data.Set("saml_sign_messages", authentication.SamlSignMessages))
+	errors.addError(data.Set("saml_sign_assertions", authentication.SamlSignAssertions))
+	errors.addError(data.Set("saml_sign_authn_requests", authentication.SamlSignAuthnRequests))
+	errors.addError(data.Set("saml_sign_logout_requests", authentication.SamlSignLogoutRequests))
+	errors.addError(data.Set("saml_sign_logout_responses", authentication.SamlSignLogoutResponses))
+	errors.addError(data.Set("saml_encrypt_nameid", authentication.SamlEncryptNameid))
+	errors.addError(data.Set("saml_encrypt_assertions", authentication.SamlEncryptAssertions))
+	errors.addError(data.Set("saml_case_sensitive", authentication.SamlCaseSensitive))
+	//errors.addError(data.Set("passwd_min_length", authentication.PasswdMinLength))
+	//errors.addError(data.Set("passwd_check_rules", authentication.PasswdCheckRules))
+	return errors.getDiagnostics()
+}
+
+func createAuthObjectFromResourceData(d *schema.ResourceData) *zabbix.AuthenticationSettings {
+	auth := &zabbix.AuthenticationSettings{
+		AuthenticationType: d.Get("authentication_type").(int),
+		HttpAuthEnabled:    d.Get("http_auth_enabled").(int),
+		HttpLoginForm:      d.Get("http_login_form").(int),
+		HttpStripDomains:   d.Get("http_strip_domains").(string),
+		HttpCaseSensitive:  d.Get("http_case_sensitive").(int),
+		LdapConfigured:     d.Get("ldap_configured").(int),
+		LdapCaseSensitive:  d.Get("ldap_case_sensitive").(int),
+		//LdapUserdirectoryid:     d.Get("ldap_userdirectoryid").(int),
 		SamlAuthEnabled:         d.Get("saml_auth_enabled").(int),
 		SamlIdpEntityid:         d.Get("saml_idp_entityid").(string),
 		SamlSsoUrl:              d.Get("saml_sso_url").(string),
@@ -183,84 +272,8 @@ func createAuthObject(d *schema.ResourceData) zabbix.AuthPrototype {
 		SamlEncryptNameid:       d.Get("saml_encrypt_nameid").(int),
 		SamlEncryptAssertions:   d.Get("saml_encrypt_assertions").(int),
 		SamlCaseSensitive:       d.Get("saml_case_sensitive").(int),
-		PasswdMinLength:         d.Get("passwd_min_length").(int),
-		PasswdCheckRules:        d.Get("passwd_check_rules").(string),
+		//PasswdMinLength:         d.Get("passwd_min_length").(int),
+		//PasswdCheckRules:        d.Get("passwd_check_rules").(int),
 	}
 	return auth
-}
-
-func resourceZabbixAuthRead(d *schema.ResourceData, meta interface{}) error {
-	//api := meta.(*zabbix.API)
-	//params := zabbix.Params{
-	//	"output": "extend",
-	//}
-	//
-	//res, err := api.AuthGet(params)
-	//
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//log.Printf("inside read")
-	//
-	//if err != nil {
-	//	log.Printf("inside read 1 ")
-	//	return err
-	//}
-	//
-	//err2 := d.Set("saml_auth_enabled", res.ID)
-	//if err2 != nil {
-	//	log.Printf("inside read 2")
-	//	return err2
-	//}
-	////d.Set("host_id", auth.SAMLIDP)
-	////d.Set("interface_id", auth.InterfaceID)
-	////d.Set("key", auth.Key)
-	////d.Set("name", auth.Name)
-	////d.Set("type", auth.Type)
-	////d.Set("value_type", auth.ValueType)
-	////d.Set("data_type", auth.DataType)
-	////d.Set("delta", auth.Delta)
-	////d.Set("description", auth.Description)
-	//
-	////log.Printf("[DEBUG] Item name is %s\n", item.Name)
-	return nil
-}
-
-func resourceZabbixAuthExists(d *schema.ResourceData, meta interface{}) (bool, error) {
-	//api := meta.(*zabbix.API)
-	//
-	//_, err := api.ItemGetByID(d.Id())
-	//if err != nil {
-	//	if strings.Contains(err.Error(), "Expected exactly one result") {
-	//		log.Printf("[DEBUG] Item with id %s doesn't exist", d.Id())
-	//		return false, nil
-	//	}
-	//	return false, err
-	//}
-	return true, nil
-}
-
-func resourceZabbixAuthUpdate(d *schema.ResourceData, meta interface{}) error {
-	/*
-		read the object , refill with changes and apply to api
-	*/
-	return nil
-}
-
-func resourceZabbixAuthDelete(d *schema.ResourceData, meta interface{}) error {
-	return nil
-}
-
-func createAuth(auth zabbix.AuthPrototype, meta interface{}) (id string, err error) {
-
-	api := meta.(*zabbix.API)
-	_, err = api.AuthSet(auth)
-
-	if err != nil {
-		log.Printf("Error in create Auth")
-		return
-	}
-
-	return "1", nil
 }

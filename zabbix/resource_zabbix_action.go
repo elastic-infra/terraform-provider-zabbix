@@ -1106,7 +1106,6 @@ func createActionOperationMessage(id string, lst []interface{}, api *zabbix.API)
 		params := zabbix.Params{
 			"output": []string{},
 			"filter": map[string]interface{}{
-				"alias":    userNames,
 				"username": userNames,
 			},
 		}
@@ -1520,7 +1519,7 @@ func readActionOperationMessageTargets(
 		}
 		params := zabbix.Params{
 			"userids": userIds,
-			"output":  []string{"alias", "username"},
+			"output":  []string{"username"},
 		}
 		res, err := api.UsersGet(params)
 		if err != nil {
@@ -1529,11 +1528,7 @@ func readActionOperationMessageTargets(
 		for _, u := range res {
 			m := map[string]interface{}{}
 			m["type"] = "user"
-			if u.Alias != "" {
-				m["value"] = u.Alias
-			} else {
-				m["value"] = u.Username
-			}
+			m["value"] = u.Username
 			lst = append(lst, m)
 		}
 	}

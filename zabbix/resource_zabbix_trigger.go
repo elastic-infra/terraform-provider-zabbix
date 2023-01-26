@@ -41,7 +41,7 @@ func resourceZabbixTrigger() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"template_id": &schema.Schema{
 				Type:     schema.TypeString,
-				Optional: true,
+				Required: true,
 			},
 			"uuid": &schema.Schema{
 				Type:     schema.TypeString,
@@ -71,12 +71,12 @@ func resourceZabbixTrigger() *schema.Resource {
 				Default:  0,
 			},
 			// Name of the trigger
-			"name": &schema.Schema{
+			"description": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 			},
 
-			"comment": &schema.Schema{
+			"comments": &schema.Schema{
 				Type:     schema.TypeString,
 				Optional: true,
 			},
@@ -85,7 +85,7 @@ func resourceZabbixTrigger() *schema.Resource {
 				Optional: true,
 				Default:  0,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-					value := ItemTypeInventoryMap[val.(string)]
+					value := TriggerPriorityMap[val.(string)]
 					if value < 0 || value > 5 {
 						errs = append(errs, fmt.Errorf("%q, must be between 0 and 5 inclusive, got %d", key, value))
 					}
@@ -134,19 +134,16 @@ func resourceZabbixTriggerRead(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return err
 	}
-	if len(res) == 0 {
-		return nil
-	}
 	if len(res) != 1 {
 		return fmt.Errorf("Expected one result got : %d", len(res))
 	}
 	trigger := res[0]
 	err = getTriggerExpression(&trigger, api)
 	log.Printf("[DEBUG] trigger expression: %s", trigger.Expression)
-	d.Set("name", trigger.Name)
+	d.Set("description", trigger.Description)
 	d.Set("expression", trigger.Expression)
-	if trigger.Comment != "" {
-		d.Set("comment", trigger.Comment)
+	if trigger.Comments != "" {
+		d.Set("comments", trigger.Comments)
 	}
 	d.Set("priority", trigger.Priority)
 	d.Set("status", trigger.Status)
@@ -190,6 +187,7 @@ func resourceZabbixTriggerUpdate(d *schema.ResourceData, meta interface{}) error
 
 func resourceZabbixTriggerDelete(d *schema.ResourceData, meta interface{}) error {
 	api := meta.(*zabbix.API)
+
 	return deleteRetry(d.Id(), getTriggerParentID, api.TriggersDeleteIDs, api)
 }
 
@@ -206,14 +204,14 @@ func createTriggerDependencies(d *schema.ResourceData) zabbix.Triggers {
 
 func createTriggerObj(d *schema.ResourceData) zabbix.Trigger {
 	return zabbix.Trigger{
-		Name: d.Get("name").(string),
-		//TemplateID:   d.Get("template_id").(string),
+		Description: d.Get("description").(string),
+		//TemplateID:   d.Get("templateid").(string),
 		UUID:         d.Get("uuid").(string),
 		Expression:   d.Get("expression").(string),
 		RecoveryMode: RecoveryModeMap[(d.Get("recovery_mode").(string))],
 		RecoveryExp:  d.Get("recovery_expression").(string),
 		Priority:     TriggerPriorityMap[(d.Get("priority").(string))],
-		Comment:      d.Get("comment").(string),
+		Comments:     d.Get("comments").(string),
 		ManualClose:  TriggerCloseMap[(d.Get("manual_close").(string))],
 		Status:       zabbix.StatusType(d.Get("status").(int)),
 		EventName:    d.Get("event_name").(string),
@@ -256,10 +254,6 @@ func getTriggerParentID(api *zabbix.API, id string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(triggers) == 0 {
-		return "", nil
-	}
-
 	if len(triggers) != 1 {
 		return "", fmt.Errorf("Expected one item and got %d items", len(triggers))
 	}

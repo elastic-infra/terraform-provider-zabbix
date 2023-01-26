@@ -80,3 +80,21 @@ func createRetry(d *schema.ResourceData, meta interface{}, create createFunc, cr
 		return nil
 	})
 }
+
+type EnumMap map[string]int
+
+func (m *EnumMap) types() (keys []string) {
+	for key, _ := range *m {
+		keys = append(keys, key)
+	}
+	return
+}
+
+func (m *EnumMap) getStringType(enumValue int) string {
+	for key, value := range *m {
+		if value == enumValue {
+			return key
+		}
+	}
+	return ""
+}
