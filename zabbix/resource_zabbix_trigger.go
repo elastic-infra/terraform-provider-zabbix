@@ -134,6 +134,9 @@ func resourceZabbixTriggerRead(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return err
 	}
+	if len(res) == 0 {
+		return nil
+	}
 	if len(res) != 1 {
 		return fmt.Errorf("Expected one result got : %d", len(res))
 	}
@@ -187,7 +190,6 @@ func resourceZabbixTriggerUpdate(d *schema.ResourceData, meta interface{}) error
 
 func resourceZabbixTriggerDelete(d *schema.ResourceData, meta interface{}) error {
 	api := meta.(*zabbix.API)
-
 	return deleteRetry(d.Id(), getTriggerParentID, api.TriggersDeleteIDs, api)
 }
 
@@ -254,6 +256,10 @@ func getTriggerParentID(api *zabbix.API, id string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if len(triggers) == 0 {
+		return "", nil
+	}
+
 	if len(triggers) != 1 {
 		return "", fmt.Errorf("Expected one item and got %d items", len(triggers))
 	}

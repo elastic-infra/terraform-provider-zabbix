@@ -31,11 +31,41 @@ var ItemTypeInventoryMap = map[string]int{
 }
 
 var ValueTypeInventoryMap = map[string]int{
-	"float":     0,
-	"character": 1,
-	"log":       2,
-	"unsigned":  3,
-	"text":      4,
+	"FLOAT":    0,
+	"CHAR":     1,
+	"log":      2,
+	"unsigned": 3,
+	"text":     4,
+}
+
+var ItemPreProcessingMap = map[string]int{
+	"MULTIPLIER":                        1,
+	"Right trim":                        2,
+	"Left trim":                         3,
+	"Trim":                              4,
+	"Regular expression matching":       5,
+	"Boolean to decimal":                6,
+	"Octal to decimal":                  7,
+	"Hexadecimal to decimal":            8,
+	"Simple change":                     9,
+	"Change per second":                 10,
+	"XML XPath":                         11,
+	"JSONPath":                          12,
+	"In range":                          13,
+	"Matches regular expression":        14,
+	"Does not match regular expression": 15,
+	"Check for error in JSON":           16,
+	"Check for error in XML":            17,
+	"Check for error using regular expression": 18,
+	"Discard unchanged":                        19,
+	"Discard unchanged with heartbeat":         20,
+	"JavaScript":                               21,
+	"Prometheus pattern":                       22,
+	"Prometheus to JSON":                       23,
+	"CSV to JSON":                              24,
+	"Replace":                                  25,
+	"Check unsupported":                        26,
+	"XML to JSON":                              27,
 }
 
 func resourceZabbixItem() *schema.Resource {
@@ -78,10 +108,17 @@ func resourceZabbixItem() *schema.Resource {
 				Optional: true,
 				Default:  0,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-					value := ItemTypeInventoryMap[val.(string)]
-					if value < 0 || value > 21 {
-						errs = append(errs, fmt.Errorf("%q, must be between 0 and 16 inclusive, got %d", key, value))
+
+					if val != nil {
+						value := ItemTypeInventoryMap[val.(string)]
+						if value < 0 || value > 21 {
+							errs = append(errs, fmt.Errorf("%q, must be between 0 and 16 inclusive, got %d", key, value))
+						} else {
+							//log.Printf(string(rune(value)))
+						}
+
 					}
+
 					return
 				},
 			},
@@ -190,6 +227,17 @@ func resourceZabbixItem() *schema.Resource {
 									"type": {
 										Type:     schema.TypeString,
 										Required: true,
+										ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+											if val != nil {
+												value := ItemPreProcessingMap[val.(string)]
+												log.Println("value is ", value)
+												if value < 1 || value > 27 {
+													errs = append(errs, fmt.Errorf("%q, must be between 1 and 27 inclusive, got %d", key, value))
+												}
+												val = value
+											}
+											return
+										},
 									},
 									"value": {
 										Type:     schema.TypeString,
@@ -200,21 +248,6 @@ func resourceZabbixItem() *schema.Resource {
 					},
 				},
 			},
-			//"preprocessor": {
-			//	Type:     schema.TypeList,
-			//	Optional: true,
-			//	Elem: &schema.Resource{
-			//		Schema: map[string]*schema.Schema{
-			//			"type": {
-			//				Type:     schema.TypeString,
-			//				Required: true,
-			//			},
-			//			"value": {
-			//				Type:     schema.TypeString,
-			//				Optional: true},
-			//		},
-			//	},
-			//},
 		},
 	}
 }
@@ -249,9 +282,12 @@ func createPreProcessorObject(lst []interface{}) (PreprocessorList zabbix.Prepro
 	for _, v := range lst {
 		stepMap := v.(map[string]interface{})["step"].([]interface{})
 		for _, v := range stepMap {
-			key := v.(map[string]interface{})["type"].(string)
+			//log.Printf("Type 2 is ",key)
+			key := ItemPreProcessingMap[v.(map[string]interface{})["type"].(string)]
+			log.Printf("Type 2 is " + v.(map[string]interface{})["type"].(string))
+			log.Println(key)
 			value := v.(map[string]interface{})["value"].(string)
-			println(key, value)
+			PreprocessorList = append(PreprocessorList, zabbix.Preprocessor{Type: key, Params: value, ErrorHandler: "0", ErrorHandlerParams: ""})
 		}
 	}
 
@@ -329,6 +365,7 @@ func getItemParentID(api *zabbix.API, id string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%s, with item %s", err.Error(), id)
 	}
+
 	if len(items) != 1 {
 		return "", fmt.Errorf("Expected one item and got %d items", len(items))
 	}
