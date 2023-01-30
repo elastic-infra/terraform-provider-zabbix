@@ -30,7 +30,7 @@ func resourceZabbixValueMap() *schema.Resource {
 			},
 			"uuid": {
 				Type:        schema.TypeString,
-				Computed:    true,
+				Optional:    true,
 				Description: "Universal unique identifier, used for linking imported value maps to already existing ones. Used only for value maps on templates. Auto-generated, if not given",
 			},
 			"host_id": {
@@ -77,7 +77,11 @@ func resourceZabbixValueMapDelete(ctx context.Context, data *schema.ResourceData
 func resourceZabbixValueMapUpdate(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	api := meta.(*zabbix.API)
 	valueMap := createValueMapObjectFromResourceData(data)
-	valueMap.HostID = "" // can't have it as a param in update method
+	/*
+		HostID & UUID Should both be nulls on update
+	*/
+	valueMap.HostID = ""
+	valueMap.UUID = ""
 	err := api.UpdateAPIObject(valueMap)
 	if err != nil {
 		return diag.FromErr(err)
