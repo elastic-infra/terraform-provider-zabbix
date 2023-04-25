@@ -4,7 +4,7 @@ set -e
 set +x
 
 function provider() {
-  echo -n $(jq -r .namespace ../version.json)/$(jq -r .provider ../version.json)
+  echo -n $(jq -r .namespace version.json)/$(jq -r .provider version.json)
 }
 
 function version_le() {
@@ -12,14 +12,14 @@ function version_le() {
 }
 
 function check() {
-  version_le "$(jq -r .version ../version.json)" "$(curl -sL ${CITIZEN_ADDR}/v1/providers/$(provider)/versions  | jq -r ${JQ}  | sort -Vr | head -n1)"
+  version_le "$(jq -r .version version.json)" "$(curl -sL ${CITIZEN_ADDR}/v1/providers/$(provider)/versions  | jq -r ${JQ}  | sort -Vr | head -n1)"
 }
 
 function populateToCitizen() {
   /usr/local/bin/citizen provider \
-    $(jq -r .namespace ../version.json) \
-    $(jq -r .provider ../version.json) \
-    $(jq -r .version ../version.json) \
+    $(jq -r .namespace version.json) \
+    $(jq -r .provider version.json) \
+    $(jq -r .version version.json) \
     4.1,5.0
 }
 
