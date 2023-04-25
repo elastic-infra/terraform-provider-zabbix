@@ -1,10 +1,10 @@
-module github.com/claranet/terraform-provider-zabbix
+module github.com/atypon/terraform-provider-zabbix
 
 go 1.18
 
 require (
-	github.com/claranet/go-zabbix-api v1.0.0
-	github.com/hashicorp/go-version v1.3.0
+	github.com/atypon/go-zabbix-api v0.1.1
+	github.com/hashicorp/go-version v1.6.0
 	github.com/hashicorp/terraform-plugin-sdk v1.17.2
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.8.0
 )
@@ -70,6 +70,3 @@ require (
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
-
-//replace github.com/claranet/go-zabbix-api v1.0.0 => github.com/elastic-infra/go-zabbix-api v1.2.0
-replace github.com/claranet/go-zabbix-api => /home/onaimat/sourcegit/go-zabbix-api-base/go-zabbix-api/

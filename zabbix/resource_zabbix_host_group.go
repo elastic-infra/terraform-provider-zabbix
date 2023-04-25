@@ -1,10 +1,10 @@
 package zabbix
 
 import (
+	"github.com/atypon/go-zabbix-api"
 	"log"
 	"strings"
 
-	"github.com/claranet/go-zabbix-api"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 

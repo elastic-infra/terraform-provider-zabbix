@@ -2,11 +2,11 @@ package zabbix
 
 import (
 	"fmt"
+	"github.com/atypon/go-zabbix-api"
 	"log"
 	"strings"
 	"time"
 
-	"github.com/claranet/go-zabbix-api"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )

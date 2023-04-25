@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/claranet/terraform-provider-zabbix/zabbix"
+	"github.com/atypon/terraform-provider-zabbix/zabbix"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
 	"log"
