@@ -39,6 +39,7 @@ citizen:
 	rm -rf $(CDIR)
 	mkdir -vp $(CDIR)
 	go get github.com/atypon/go-zabbix-api
+	go get github.com/atypon/terraform-provider-zabbix/zabbix
 	go build -o $(CDIR)terraform-provider-zabbix_`jq -r .version version.json`
 	zip -r $(CDIR)gcp-zabbix_`jq -r .version version.json`_linux_amd64.zip  \
 		$(CDIR)terraform-provider-zabbix_`jq -r .version version.json`
