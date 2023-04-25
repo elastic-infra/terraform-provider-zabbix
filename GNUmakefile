@@ -40,7 +40,7 @@ citizen:
 	mkdir -vp $(CDIR)
 	go get github.com/atypon/go-zabbix-api
 	go get github.com/atypon/terraform-provider-zabbix/zabbix
-	go build -o $(CDIR)terraform-provider-zabbix_`jq -r .version version.json`
+	go build -o $(CDIR)terraform-provider-zabbix
 	zip -r $(CDIR)gcp-zabbix_`jq -r .version version.json`_linux_amd64.zip  \
 		$(CDIR)terraform-provider-zabbix_`jq -r .version version.json`
 #	shasum -a 256 $(CDIR)*.zip > $(CDIR)gcp-zabbix_`jq -r .version version.json`_SHA256SUMS
