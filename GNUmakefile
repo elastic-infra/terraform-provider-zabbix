@@ -36,13 +36,11 @@ testacc:
 citizen:
 	apt update
 	apt install -y zip jq
-	rm -rf $(CDIR)
-	mkdir -vp $(CDIR)
 	go get github.com/atypon/go-zabbix-api
 	go get github.com/atypon/terraform-provider-zabbix/zabbix
-	go build -o $(CDIR)terraform-provider-zabbix
-	zip -r $(CDIR)gcp-zabbix_`jq -r .version version.json`_linux_amd64.zip  \
-		$(CDIR)terraform-provider-zabbix
+	go build -o terraform-provider-zabbix
+	zip -r gcp-zabbix_`jq -r .version version.json`_linux_amd64.zip  \
+		terraform-provider-zabbix
 #	shasum -a 256 $(CDIR)*.zip > $(CDIR)gcp-zabbix_`jq -r .version version.json`_SHA256SUMS
 #	gpg --batch --gen-key gen-key-script
 #	gpg --detach-sign $(CDIR)gcp-zabbix_`jq -r .version version.json`_SHA256SUMS
