@@ -42,7 +42,7 @@ citizen:
 	go get github.com/atypon/terraform-provider-zabbix/zabbix
 	go build -o $(CDIR)terraform-provider-zabbix
 	zip -r $(CDIR)gcp-zabbix_`jq -r .version version.json`_linux_amd64.zip  \
-		$(CDIR)terraform-provider-zabbix_`jq -r .version version.json`
+		$(CDIR)terraform-provider-zabbix
 #	shasum -a 256 $(CDIR)*.zip > $(CDIR)gcp-zabbix_`jq -r .version version.json`_SHA256SUMS
 #	gpg --batch --gen-key gen-key-script
 #	gpg --detach-sign $(CDIR)gcp-zabbix_`jq -r .version version.json`_SHA256SUMS
