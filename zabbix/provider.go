@@ -41,6 +41,9 @@ func Provider() *schema.Provider {
 		DataSourcesMap: map[string]*schema.Resource{
 			"zabbix_server":     dataSourceZabbixServer(),
 			"zabbix_host_group": dataSourceZabbixHostGroup(),
+			"zabbix_host":       dataSourceZabbixHost(),
+			"zabbix_proxy":      dataSourceZabbixProxy(),
+			"zabbix_template":   dataSourceZabbixTemplate(),
 		},
 
 		ResourcesMap: map[string]*schema.Resource{
