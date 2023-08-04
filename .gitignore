@@ -26,6 +26,7 @@ terraform.tfvars
 *.iml
 *.test
 *.iml
+go.sum
 
 website/vendor
 
