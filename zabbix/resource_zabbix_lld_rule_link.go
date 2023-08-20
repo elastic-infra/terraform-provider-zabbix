@@ -15,7 +15,7 @@ func resourceZabbixLLDRuleLink() *schema.Resource {
 		Update: resourceZabbixLLDRuleLinkUpdate,
 		Delete: resourceZabbixLLDRuleLinkDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Schema: map[string]*schema.Schema{
 			"lld_rule_id": &schema.Schema{

@@ -281,6 +281,9 @@ var actionOperationCommandSchema = &schema.Resource{
 			Set: OperationCommandHash,
 		},
 	},
+	Importer: &schema.ResourceImporter{
+		StateContext: schema.ImportStatePassthroughContext,
+	},
 }
 
 func OperationCommandHash(v interface{}) int {

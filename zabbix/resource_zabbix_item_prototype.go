@@ -17,7 +17,7 @@ func resourceZabbixItemPrototype() *schema.Resource {
 		Update: resourceZabbixItemPrototypeUpdate,
 		Delete: resourceZabbixItemPrototypeDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Schema: map[string]*schema.Schema{
 			"delay": &schema.Schema{

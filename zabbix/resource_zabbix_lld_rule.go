@@ -17,7 +17,7 @@ func resourceZabbixLLDRule() *schema.Resource {
 		Update: resourceZabbixLLDRuleUpdate,
 		Delete: resourceZabbixLLDRuleDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Schema: map[string]*schema.Schema{
 			"delay": &schema.Schema{

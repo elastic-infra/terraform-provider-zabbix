@@ -122,6 +122,9 @@ func resourceZabbixHousekeepingSettings() *schema.Resource {
 				Computed: true,
 			},
 		},
+		Importer: &schema.ResourceImporter{
+			StateContext: schema.ImportStatePassthroughContext,
+		},
 	}
 }
 

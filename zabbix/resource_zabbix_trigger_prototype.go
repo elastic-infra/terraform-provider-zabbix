@@ -17,7 +17,7 @@ func resourceZabbixTriggerPrototype() *schema.Resource {
 		Update: resourceZabbixTriggerPrototypeUpdate,
 		Delete: resourceZabbixTriggerPrototypeDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Schema: map[string]*schema.Schema{
 			"description": &schema.Schema{

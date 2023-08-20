@@ -15,7 +15,7 @@ func resourceZabbixTemplateLink() *schema.Resource {
 		Update: resourceZabbixTemplateLinkUpdate,
 		Delete: resourceZabbixTemplateLinkDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Schema: map[string]*schema.Schema{
 			"template_id": &schema.Schema{

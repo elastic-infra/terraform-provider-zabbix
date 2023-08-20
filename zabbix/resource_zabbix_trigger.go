@@ -36,7 +36,7 @@ func resourceZabbixTrigger() *schema.Resource {
 		Update: resourceZabbixTriggerUpdate,
 		Delete: resourceZabbixTriggerDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Schema: map[string]*schema.Schema{
 			"template_id": &schema.Schema{
