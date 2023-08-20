@@ -27,6 +27,7 @@ terraform.tfvars
 *.test
 *.iml
 go.sum
+dist/
 
 website/vendor
 
@@ -35,3 +36,4 @@ website/vendor
 !command/test-fixtures/**/.terraform/
 
 
+/README-local.md
