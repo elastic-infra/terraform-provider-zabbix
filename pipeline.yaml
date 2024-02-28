@@ -14,7 +14,7 @@ steps:
       - CITIZEN_ADDR=https://citizen.devops.atypon.com
       - INSTANCE_ARGS=--tags=remote-cloud-builder --image-project cos-cloud --image-family cos-stable  --subnet projects/atypon-infra/regions/us-central1/subnetworks/atypon-subnet-infrastructure --no-address
       - USERNAME=cloud-user
-      - CITIZEN_IMAGE=gcr.io/atypon-devops/citizin:v0.2.2
+      - CITIZEN_IMAGE=us-central1-docker.pkg.dev/atypon-artifact/docker-registry/atypon-devops/citizin:v0.2.2
       - CITIZEN_CONTAINER_ARGS=bash /workspace/pipelineScript.sh
     args:
       - '-c'
