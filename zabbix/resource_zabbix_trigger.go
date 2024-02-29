@@ -127,6 +127,12 @@ func resourceZabbixTriggerUpdate(d *schema.ResourceData, meta interface{}) error
 	trigger := createTriggerObj(d)
 
 	trigger.TriggerID = d.Id()
+	if !d.HasChange("description") {
+		trigger.Description = ""
+	}
+	if !d.HasChange("expression") {
+		trigger.Expression = ""
+	}
 	if !d.HasChange("dependencies") {
 		trigger.Dependencies = nil
 	}

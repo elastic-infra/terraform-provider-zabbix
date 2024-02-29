@@ -74,4 +74,4 @@ require (
 	google.golang.org/protobuf v1.25.0 // indirect
 )
 
-replace github.com/claranet/go-zabbix-api v1.0.0 => github.com/elastic-infra/go-zabbix-api v1.3.0
+replace github.com/claranet/go-zabbix-api v1.0.0 => github.com/elastic-infra/go-zabbix-api v1.3.1

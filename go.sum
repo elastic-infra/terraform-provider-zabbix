@@ -85,8 +85,8 @@ github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ3
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/elastic-infra/go-zabbix-api v1.3.0 h1:0mAXWv+7+QmvOD9s3NoNIF46bhz0yAC/csy09ADuXwc=
-github.com/elastic-infra/go-zabbix-api v1.3.0/go.mod h1:ZK0I4NKOPCumEza6i8R3iHkAk79munoWIqCxCvpnI/4=
+github.com/elastic-infra/go-zabbix-api v1.3.1 h1:kM7n45roY/pjY3o9vsr0kD5RvOI5ubgiuysLbwNFYL8=
+github.com/elastic-infra/go-zabbix-api v1.3.1/go.mod h1:ZK0I4NKOPCumEza6i8R3iHkAk79munoWIqCxCvpnI/4=
 github.com/emirpasic/gods v1.12.0 h1:QAUIPSaCu4G+POclxeqb3F+WPpdKqFGlw36+yOzGlrg=
 github.com/emirpasic/gods v1.12.0/go.mod h1:YfzfFFoVP/catgzJb4IKIqXjX78Ha8FMSDh3ymbK86o=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
