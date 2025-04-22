@@ -184,7 +184,39 @@ func resourceZabbixTemplateUpdate(d *schema.ResourceData, meta interface{}) erro
 	template.TemplatesClear = getUnlinkedTemplate(d)
 	template.TemplateID = d.Id()
 
-	return createRetry(d, meta, updateTemplate, *template, resourceZabbixTemplateRead)
+	// Check if macros need to be cleared
+	macrosCleared := false
+	if d.HasChange("macro") {
+		_, newMacros := d.GetChange("macro")
+		if len(newMacros.(map[string]interface{})) == 0 {
+			macrosCleared = true
+		}
+	}
+
+	// If macros were cleared, we need a special update call payload to bypass omitempty
+	if macrosCleared {
+		log.Printf("[DEBUG] Clearing macros for template ID %s via custom payload", d.Id())
+		// Construct a payload containing only the template ID and the empty macros array
+		// The API should only update the macros field when receiving this.
+		updatePayload := map[string]interface{}{
+			"templateid": template.TemplateID,
+			"macros":        []zabbix.Macro{},
+		}
+		// Use a retry mechanism for the specific macro clearing update
+		updateFunc := func(payload interface{}, a *zabbix.API) (string, error) {
+			_, err := a.CallWithError("template.update", payload.(map[string]interface{}))
+			if err != nil {
+				return template.TemplateID, err // Return ID even on error for retry context if needed
+			}
+			return template.TemplateID, nil
+		}
+		return createRetry(d, meta, updateFunc, updatePayload, resourceZabbixTemplateRead)
+		
+	} else {
+		// Standard update if macros were not cleared, using the helper function
+		log.Printf("[DEBUG] Updating template ID %s via standard helper", d.Id())
+		return createRetry(d, meta, updateTemplate, *template, resourceZabbixTemplateRead)
+	}
 }
 
 func resourceZabbixTemplateDelete(d *schema.ResourceData, meta interface{}) error {
