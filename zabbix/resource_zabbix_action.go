@@ -674,7 +674,39 @@ func resourceZabbixAction() *schema.Resource {
 	}
 }
 
+func validateActionOperationMessages(operations []interface{}) error {
+	for i, op := range operations {
+		operation := op.(map[string]interface{})
+		if messages, exists := operation["message"]; exists {
+			messagesList := messages.([]interface{})
+			for j, msg := range messagesList {
+				message := msg.(map[string]interface{})
+				defaultMessage := message["default_message"].(bool)
+				subject := message["subject"].(string)
+				messageText := message["message"].(string)
+
+				if defaultMessage && (subject != "" || messageText != "") {
+					return fmt.Errorf("operation[%d].message[%d]: cannot specify 'subject' or 'message' when 'default_message' is true. "+
+						"Please remove 'subject' and 'message' fields or set them to empty strings (\"\") when using default_message = true", i, j)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func createActionObject(d *schema.ResourceData, api *zabbix.API) (*zabbix.Action, error) {
+	// Validate operation messages
+	if err := validateActionOperationMessages(d.Get("operation").([]interface{})); err != nil {
+		return nil, err
+	}
+	if err := validateActionOperationMessages(d.Get("recovery_operation").([]interface{})); err != nil {
+		return nil, err
+	}
+	if err := validateActionOperationMessages(d.Get("update_operation").([]interface{})); err != nil {
+		return nil, err
+	}
+
 	status := zabbix.Disabled
 	if d.Get("enabled").(bool) {
 		status = zabbix.Enabled
@@ -1051,15 +1083,20 @@ func createActionOperationMessage(lst []interface{}, api *zabbix.API) (
 	m := lst[0].(map[string]interface{})
 
 	defMsg := "0"
-	if m["default_message"].(bool) {
+	useDefaultMessage := m["default_message"].(bool)
+	if useDefaultMessage {
 		defMsg = "1"
 	}
 
 	msg = &zabbix.ActionOperationMessage{
 		DefaultMessage: defMsg,
 		MediaTypeID:    m["media_type_id"].(string),
-		Message:        m["message"].(string),
-		Subject:        m["subject"].(string),
+	}
+
+	// Only include custom subject and message when not using default message
+	if !useDefaultMessage {
+		msg.Message = m["message"].(string)
+		msg.Subject = m["subject"].(string)
 	}
 
 	targets := m["target"].(*schema.Set).List()
@@ -1470,10 +1507,19 @@ func readActionOperationMessages(
 	}
 
 	m := map[string]interface{}{}
-	m["default_message"] = msg.DefaultMessage == "1"
+	useDefaultMessage := msg.DefaultMessage == "1"
+	m["default_message"] = useDefaultMessage
 	m["media_type_id"] = msg.MediaTypeID
-	m["subject"] = msg.Subject
-	m["message"] = msg.Message
+
+	// When using default message, always set subject and message to empty in state
+	// to avoid diff issues when user changes from custom to default message
+	if useDefaultMessage {
+		m["subject"] = ""
+		m["message"] = ""
+	} else {
+		m["subject"] = msg.Subject
+		m["message"] = msg.Message
+	}
 
 	target, err := readActionOperationMessageTargets(groups, users, api)
 	if err != nil {
