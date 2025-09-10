@@ -2,7 +2,7 @@ package zabbix
 
 import (
 	"bytes"
-	"fmt"
+、	"fmt"
 	"log"
 	"strings"
 
@@ -830,8 +830,23 @@ func createActionRecoveryOperationObject(lst []interface{}, api *zabbix.API) (it
 
 		t := m["type"].(string)
 		opeType := StringActionOperationTypeMap[t]
+
+		var msg *zabbix.ActionOperationMessage
+		var msgUserGroups zabbix.ActionOperationMessageUserGroups
+		var msgUsers zabbix.ActionOperationMessageUsers
+
 		if t == "notify_all_involved" {
 			opeType = zabbix.NotifyRecoveryAllInvolved
+			// For notify_all_involved type, set empty message
+			msg = &zabbix.ActionOperationMessage{
+				OperationID: opeId,
+			}
+		} else {
+			var err error
+			msg, msgUserGroups, msgUsers, err = createActionOperationMessage(opeId, m["message"].([]interface{}), api)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		item := zabbix.ActionRecoveryOperation{
@@ -865,8 +880,23 @@ func createActionUpdateOperationObject(lst []interface{}, api *zabbix.API) (item
 
 		t := m["type"].(string)
 		opeType := StringActionOperationTypeMap[t]
+
+		var msg *zabbix.ActionOperationMessage
+		var msgUserGroups zabbix.ActionOperationMessageUserGroups
+		var msgUsers zabbix.ActionOperationMessageUsers
+
 		if t == "notify_all_involved" {
 			opeType = zabbix.NotifyUpdateAllInvolved
+			// For notify_all_involved type, set empty message
+			msg = &zabbix.ActionOperationMessage{
+				OperationID: opeId,
+			}
+		} else {
+			var err error
+			msg, msgUserGroups, msgUsers, err = createActionOperationMessage(opeId, m["message"].([]interface{}), api)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		item := zabbix.ActionUpdateOperation{
@@ -1263,11 +1293,14 @@ func readActionRecoveryOperations(ops zabbix.ActionRecoveryOperations, api *zabb
 		}
 		m["command"] = commands
 
-		messages, err := readActionOperationMessages(v.Message, v.MessageUserGroups, v.MessageUsers, api)
-		if err != nil {
-			return nil, err
+		// Do not set message for notify_all_involved type
+		if v.OperationType != zabbix.NotifyRecoveryAllInvolved {
+			messages, err := readActionOperationMessages(v.Message, v.MessageUserGroups, v.MessageUsers, api)
+			if err != nil {
+				return nil, err
+			}
+			m["message"] = messages
 		}
-		m["message"] = messages
 
 		lst = append(lst, m)
 	}
@@ -1287,11 +1320,14 @@ func readActionUpdateOperations(ops zabbix.ActionUpdateOperations, api *zabbix.A
 		}
 		m["command"] = commands
 
-		messages, err := readActionOperationMessages(v.Message, v.MessageUserGroups, v.MessageUsers, api)
-		if err != nil {
-			return nil, err
+		// Do not set message for notify_all_involved type
+		if v.OperationType != zabbix.NotifyUpdateAllInvolved {
+			messages, err := readActionOperationMessages(v.Message, v.MessageUserGroups, v.MessageUsers, api)
+			if err != nil {
+				return nil, err
+			}
+			m["message"] = messages
 		}
-		m["message"] = messages
 
 		lst = append(lst, m)
 	}
