@@ -2,7 +2,7 @@ package zabbix
 
 import (
 	"bytes"
-、	"fmt"
+	"fmt"
 	"log"
 	"strings"
 
