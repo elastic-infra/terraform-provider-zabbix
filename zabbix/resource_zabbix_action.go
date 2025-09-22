@@ -683,12 +683,12 @@ func createActionObject(d *schema.ResourceData, api *zabbix.API) (*zabbix.Action
 	eventSource := StringEventTypeMap[d.Get("event_source").(string)]
 	supportEscalation := eventSource == zabbix.TriggerEvent || eventSource == zabbix.InternalEvent
 
-	ope, err := createActionOperationObject(d.Id(), supportEscalation, d.Get("operation").([]interface{}), api)
+	ope, err := createActionOperationObject(supportEscalation, d.Get("operation").([]interface{}), api)
 	if err != nil {
 		return nil, err
 	}
 
-	recOpe, err := createActionRecoveryOperationObject(d.Id(), d.Get("recovery_operation").([]interface{}), api)
+	recOpe, err := createActionRecoveryOperationObject(d.Get("recovery_operation").([]interface{}), api)
 	if err != nil {
 		return nil, err
 	}
@@ -754,27 +754,26 @@ func createActionConditionObject(lst []interface{}) (items zabbix.ActionFilterCo
 	return
 }
 
-func createActionOperationObject(id string, supportEscalation bool, lst []interface{}, api *zabbix.API) (items zabbix.ActionOperations, err error) {
+func createActionOperationObject(supportEscalation bool, lst []interface{}, api *zabbix.API) (items zabbix.ActionOperations, err error) {
 	for _, v := range lst {
 		m := v.(map[string]interface{})
-		opeId := m["operation_id"].(string)
 
-		cmd, cmdHostGroups, cmdHosts, err := createActionOperationCommand(opeId, m["command"].([]interface{}), api)
+		cmd, cmdHostGroups, cmdHosts, err := createActionOperationCommand(m["command"].([]interface{}), api)
 		if err != nil {
 			return nil, err
 		}
 
-		hostGroups, err := createActionOperationHostGroups(opeId, m["host_groups"].(*schema.Set).List(), api)
+		hostGroups, err := createActionOperationHostGroups(m["host_groups"].(*schema.Set).List(), api)
 		if err != nil {
 			return nil, err
 		}
 
-		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(opeId, m["message"].([]interface{}), api)
+		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), api)
 		if err != nil {
 			return nil, err
 		}
 
-		templates, err := createActionOperationTemplates(opeId, m["templates"].(*schema.Set).List(), api)
+		templates, err := createActionOperationTemplates(m["templates"].(*schema.Set).List(), api)
 		if err != nil {
 			return nil, err
 		}
@@ -782,7 +781,6 @@ func createActionOperationObject(id string, supportEscalation bool, lst []interf
 		var inventory *zabbix.ActionOperationInventory
 		if mode := m["inventory_mode"].(string); mode != "" {
 			inventory = &zabbix.ActionOperationInventory{
-				OperationID:   opeId,
 				InventoryMode: StringActionOperationInventoryModeMap[mode],
 			}
 		}
@@ -796,9 +794,7 @@ func createActionOperationObject(id string, supportEscalation bool, lst []interf
 		}
 
 		item := zabbix.ActionOperation{
-			OperationID:       opeId,
 			OperationType:     StringActionOperationTypeMap[m["type"].(string)],
-			ActionID:          id,
 			Period:            period,
 			StepFrom:          stepFrom,
 			StepTo:            stepTo,
@@ -818,17 +814,16 @@ func createActionOperationObject(id string, supportEscalation bool, lst []interf
 	return
 }
 
-func createActionRecoveryOperationObject(id string, lst []interface{}, api *zabbix.API) (items zabbix.ActionRecoveryOperations, err error) {
+func createActionRecoveryOperationObject(lst []interface{}, api *zabbix.API) (items zabbix.ActionRecoveryOperations, err error) {
 	for _, v := range lst {
 		m := v.(map[string]interface{})
-		opeId := m["operation_id"].(string)
 
-		cmd, cmdHostGroups, cmdHosts, err := createActionOperationCommand(opeId, m["command"].([]interface{}), api)
+		cmd, cmdHostGroups, cmdHosts, err := createActionOperationCommand(m["command"].([]interface{}), api)
 		if err != nil {
 			return nil, err
 		}
 
-		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(opeId, m["message"].([]interface{}), api)
+		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), api)
 		if err != nil {
 			return nil, err
 		}
@@ -840,9 +835,7 @@ func createActionRecoveryOperationObject(id string, lst []interface{}, api *zabb
 		}
 
 		item := zabbix.ActionRecoveryOperation{
-			OperationID:       opeId,
 			OperationType:     opeType,
-			ActionID:          id,
 			Command:           cmd,
 			CommandHostGroups: cmdHostGroups,
 			CommandHosts:      cmdHosts,
@@ -859,14 +852,13 @@ func createActionRecoveryOperationObject(id string, lst []interface{}, api *zabb
 func createActionUpdateOperationObject(lst []interface{}, api *zabbix.API) (items zabbix.ActionUpdateOperations, err error) {
 	for _, v := range lst {
 		m := v.(map[string]interface{})
-		opeId := m["operation_id"].(string)
 
-		cmd, cmdHostGroups, cmdHosts, err := createActionOperationCommand(opeId, m["command"].([]interface{}), api)
+		cmd, cmdHostGroups, cmdHosts, err := createActionOperationCommand(m["command"].([]interface{}), api)
 		if err != nil {
 			return nil, err
 		}
 
-		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(opeId, m["message"].([]interface{}), api)
+		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), api)
 		if err != nil {
 			return nil, err
 		}
@@ -878,7 +870,6 @@ func createActionUpdateOperationObject(lst []interface{}, api *zabbix.API) (item
 		}
 
 		item := zabbix.ActionUpdateOperation{
-			OperationID:       opeId,
 			OperationType:     opeType,
 			Command:           cmd,
 			CommandHostGroups: cmdHostGroups,
@@ -893,7 +884,7 @@ func createActionUpdateOperationObject(lst []interface{}, api *zabbix.API) (item
 	return
 }
 
-func createActionOperationCommand(id string, lst []interface{}, api *zabbix.API) (
+func createActionOperationCommand(lst []interface{}, api *zabbix.API) (
 	cmd *zabbix.ActionOperationCommand,
 	groups zabbix.ActionOperationCommandHostGroups,
 	hosts zabbix.ActionOperationCommandHosts,
@@ -904,17 +895,16 @@ func createActionOperationCommand(id string, lst []interface{}, api *zabbix.API)
 	m := lst[0].(map[string]interface{})
 
 	cmd = &zabbix.ActionOperationCommand{
-		OperationID: id,
-		Type:        StringActionOperationCommandTypeMap[m["type"].(string)],
-		Command:     m["command"].(string),
-		AuthType:    actionOperationCommandAuthType(m["auth_type"].(string)),
-		ExecuteOn:   actionOperationCommandExecutorType(m["execute_on"].(string)),
-		Username:    m["username"].(string),
-		Password:    m["password"].(string),
-		Port:        m["port"].(string),
-		PrivateKey:  m["private_key_file"].(string),
-		PublicKey:   m["public_key_file"].(string),
-		ScriptID:    m["script_id"].(string),
+		Type:       StringActionOperationCommandTypeMap[m["type"].(string)],
+		Command:    m["command"].(string),
+		AuthType:   actionOperationCommandAuthType(m["auth_type"].(string)),
+		ExecuteOn:  actionOperationCommandExecutorType(m["execute_on"].(string)),
+		Username:   m["username"].(string),
+		Password:   m["password"].(string),
+		Port:       m["port"].(string),
+		PrivateKey: m["private_key_file"].(string),
+		PublicKey:  m["public_key_file"].(string),
+		ScriptID:   m["script_id"].(string),
 	}
 
 	targets := m["target"].(*schema.Set).List()
@@ -972,18 +962,15 @@ func createActionOperationCommand(id string, lst []interface{}, api *zabbix.API)
 		switch target["type"].(string) {
 		case "host_group":
 			groups = append(groups, zabbix.ActionOperationCommandHostGroup{
-				OperationID: id,
-				GroupID:     groupMap[target["value"].(string)],
+				GroupID: groupMap[target["value"].(string)],
 			})
 		case "host":
 			hosts = append(hosts, zabbix.ActionOperationCommandHost{
-				OperationID: id,
-				HostID:      hostMap[target["value"].(string)],
+				HostID: hostMap[target["value"].(string)],
 			})
 		case "current_host":
 			hosts = append(hosts, zabbix.ActionOperationCommandHost{
-				OperationID: id,
-				HostID:      "0",
+				HostID: "0",
 			})
 		}
 	}
@@ -991,7 +978,7 @@ func createActionOperationCommand(id string, lst []interface{}, api *zabbix.API)
 	return
 }
 
-func createActionOperationHostGroups(id string, lst []interface{}, api *zabbix.API) (
+func createActionOperationHostGroups(lst []interface{}, api *zabbix.API) (
 	groups zabbix.ActionOperationHostGroups,
 	err error) {
 	if len(lst) == 0 {
@@ -1016,15 +1003,14 @@ func createActionOperationHostGroups(id string, lst []interface{}, api *zabbix.A
 	}
 	for _, g := range res {
 		groups = append(groups, zabbix.ActionOperationHostGroup{
-			OperationID: id,
-			GroupID:     g.GroupID,
+			GroupID: g.GroupID,
 		})
 	}
 
 	return
 }
 
-func createActionOperationMessage(id string, lst []interface{}, api *zabbix.API) (
+func createActionOperationMessage(lst []interface{}, api *zabbix.API) (
 	msg *zabbix.ActionOperationMessage,
 	groups zabbix.ActionOperationMessageUserGroups,
 	users zabbix.ActionOperationMessageUsers,
@@ -1040,7 +1026,6 @@ func createActionOperationMessage(id string, lst []interface{}, api *zabbix.API)
 	}
 
 	msg = &zabbix.ActionOperationMessage{
-		OperationID:    id,
 		DefaultMessage: defMsg,
 		MediaTypeID:    m["media_type_id"].(string),
 		Message:        m["message"].(string),
@@ -1075,7 +1060,6 @@ func createActionOperationMessage(id string, lst []interface{}, api *zabbix.API)
 		}
 		for _, g := range res {
 			groups = append(groups, zabbix.ActionOperationMessageUserGroup{
-				OperationID: id,
 				UserGroupID: g.GroupID,
 			})
 		}
@@ -1096,8 +1080,7 @@ func createActionOperationMessage(id string, lst []interface{}, api *zabbix.API)
 		}
 		for _, u := range res {
 			users = append(users, zabbix.ActionOperationMessageUser{
-				OperationID: id,
-				UserID:      u.UserID,
+				UserID: u.UserID,
 			})
 		}
 	}
@@ -1105,7 +1088,7 @@ func createActionOperationMessage(id string, lst []interface{}, api *zabbix.API)
 	return
 }
 
-func createActionOperationTemplates(id string, lst []interface{}, api *zabbix.API) (
+func createActionOperationTemplates(lst []interface{}, api *zabbix.API) (
 	templates zabbix.ActionOperationTemplates,
 	err error) {
 	if len(lst) == 0 {
@@ -1130,8 +1113,7 @@ func createActionOperationTemplates(id string, lst []interface{}, api *zabbix.AP
 	}
 	for _, t := range res {
 		templates = append(templates, zabbix.ActionOperationTemplate{
-			OperationID: id,
-			TemplateID:  t.TemplateID,
+			TemplateID: t.TemplateID,
 		})
 	}
 	return
@@ -1180,7 +1162,7 @@ func resourceZabbixActionRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("enabled", action.Status == zabbix.Enabled)
 	d.Set("pause_in_maintenance_periods", pauseTypeValue(action.PauseSuppressed) == zabbix.Pause)
 	d.Set("calculation", ActionEvaluationTypeStringMap[action.Filter.EvaluationType])
-	d.Set("formula", action.Filter.EvaluationType)
+	d.Set("formula", action.Filter.Formula)
 
 	conditions, err := readActionConditions(action.Filter.Conditions, api)
 	if err != nil {
@@ -1477,8 +1459,8 @@ func readActionOperationMessageTargets(
 			groupIds = append(groupIds, g.UserGroupID)
 		}
 		params := zabbix.Params{
-			"groupids": groupIds,
-			"output":   []string{"name"},
+			"usrgrpids": groupIds,
+			"output":    []string{"name"},
 		}
 		res, err := api.UserGroupsGet(params)
 		if err != nil {
