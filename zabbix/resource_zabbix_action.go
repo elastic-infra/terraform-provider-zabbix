@@ -1477,8 +1477,8 @@ func readActionOperationMessageTargets(
 			groupIds = append(groupIds, g.UserGroupID)
 		}
 		params := zabbix.Params{
-			"groupids": groupIds,
-			"output":   []string{"name"},
+			"usrgrpids": groupIds,
+			"output":    []string{"name"},
 		}
 		res, err := api.UserGroupsGet(params)
 		if err != nil {
