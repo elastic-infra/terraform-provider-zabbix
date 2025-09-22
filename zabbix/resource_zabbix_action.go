@@ -1180,7 +1180,7 @@ func resourceZabbixActionRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("enabled", action.Status == zabbix.Enabled)
 	d.Set("pause_in_maintenance_periods", pauseTypeValue(action.PauseSuppressed) == zabbix.Pause)
 	d.Set("calculation", ActionEvaluationTypeStringMap[action.Filter.EvaluationType])
-	d.Set("formula", action.Filter.EvaluationType)
+	d.Set("formula", action.Filter.Formula)
 
 	conditions, err := readActionConditions(action.Filter.Conditions, api)
 	if err != nil {
