@@ -867,15 +867,15 @@ func createActionRecoveryOperationObject(lst []interface{}, api *zabbix.API) (it
 		var msgUserGroups zabbix.ActionOperationMessageUserGroups
 		var msgUsers zabbix.ActionOperationMessageUsers
 
-		if t == "notify_all_involved" {
+		if t == "notify_all_involved_recovery" {
 			opeType = zabbix.NotifyRecoveryAllInvolved
-			// For notify_all_involved type, set empty message
-			msg = &zabbix.ActionOperationMessage{
-				OperationID: opeId,
+			// For notify_all_involved_recovery, create message without targets
+			msg, msgUserGroups, msgUsers, err = createActionOperationMessageForNotifyAllInvolved(m["message"].([]interface{}))
+			if err != nil {
+				return nil, err
 			}
 		} else {
-			var err error
-			msg, msgUserGroups, msgUsers, err = createActionOperationMessage(opeId, m["message"].([]interface{}), api)
+			msg, msgUserGroups, msgUsers, err = createActionOperationMessage(m["message"].([]interface{}), api)
 			if err != nil {
 				return nil, err
 			}
@@ -917,15 +917,15 @@ func createActionUpdateOperationObject(lst []interface{}, api *zabbix.API) (item
 		var msgUserGroups zabbix.ActionOperationMessageUserGroups
 		var msgUsers zabbix.ActionOperationMessageUsers
 
-		if t == "notify_all_involved" {
+		if t == "notify_all_involved_update" {
 			opeType = zabbix.NotifyUpdateAllInvolved
-			// For notify_all_involved type, set empty message
-			msg = &zabbix.ActionOperationMessage{
-				OperationID: opeId,
+			// For notify_all_involved_update, create message without targets
+			msg, msgUserGroups, msgUsers, err = createActionOperationMessageForNotifyAllInvolved(m["message"].([]interface{}))
+			if err != nil {
+				return nil, err
 			}
 		} else {
-			var err error
-			msg, msgUserGroups, msgUsers, err = createActionOperationMessage(opeId, m["message"].([]interface{}), api)
+			msg, msgUserGroups, msgUsers, err = createActionOperationMessage(m["message"].([]interface{}), api)
 			if err != nil {
 				return nil, err
 			}
