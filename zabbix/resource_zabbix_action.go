@@ -125,18 +125,19 @@ var ActionFilterConditionOperatorStringMap = map[zabbix.ActionFilterConditionOpe
 }
 
 var StringActionOperationTypeMap = map[string]zabbix.ActionOperationType{
-	"send_message":            zabbix.SendMessage,
-	"remote_command":          zabbix.RemoteCommand,
-	"add_host":                zabbix.AddHost,
-	"remove_host":             zabbix.RemoveHost,
-	"add_to_host_group":       zabbix.AddToHostGroup,
-	"remove_from_host_group":  zabbix.RemoveFromHostGroup,
-	"link_to_template":        zabbix.LinkToTemplate,
-	"unlink_from_template":    zabbix.UnlinkFromTemplate,
-	"enable_host":             zabbix.EnableHost,
-	"disable_host":            zabbix.DisableHost,
-	"set_host_inventory_mode": zabbix.SetHostInventoryMode,
-	// "notify_all_involved": ActionOperationType is different between recovery operation and update operation
+	"send_message":                 zabbix.SendMessage,
+	"remote_command":               zabbix.RemoteCommand,
+	"add_host":                     zabbix.AddHost,
+	"remove_host":                  zabbix.RemoveHost,
+	"add_to_host_group":            zabbix.AddToHostGroup,
+	"remove_from_host_group":       zabbix.RemoveFromHostGroup,
+	"link_to_template":             zabbix.LinkToTemplate,
+	"unlink_from_template":         zabbix.UnlinkFromTemplate,
+	"enable_host":                  zabbix.EnableHost,
+	"disable_host":                 zabbix.DisableHost,
+	"set_host_inventory_mode":      zabbix.SetHostInventoryMode,
+	"notify_all_involved_recovery": zabbix.NotifyRecoveryAllInvolved,
+	"notify_all_involved_update":   zabbix.NotifyUpdateAllInvolved,
 }
 
 var ActionOperationTypeStringMap = map[zabbix.ActionOperationType]string{
@@ -151,8 +152,8 @@ var ActionOperationTypeStringMap = map[zabbix.ActionOperationType]string{
 	zabbix.EnableHost:                "enable_host",
 	zabbix.DisableHost:               "disable_host",
 	zabbix.SetHostInventoryMode:      "set_host_inventory_mode",
-	zabbix.NotifyRecoveryAllInvolved: "notify_all_involved",
-	zabbix.NotifyUpdateAllInvolved:   "notify_all_involved",
+	zabbix.NotifyRecoveryAllInvolved: "notify_all_involved_recovery",
+	zabbix.NotifyUpdateAllInvolved:   "notify_all_involved_update",
 }
 
 var StringActionOperationCommandTypeMap = map[string]zabbix.ActionOperationCommandType{
@@ -614,7 +615,7 @@ func resourceZabbixAction() *schema.Resource {
 								[]string{
 									"send_message",
 									"remote_command",
-									"notify_all_involved",
+									"notify_all_involved_recovery",
 								},
 								false,
 							),
@@ -650,7 +651,7 @@ func resourceZabbixAction() *schema.Resource {
 								[]string{
 									"send_message",
 									"remote_command",
-									"notify_all_involved",
+									"notify_all_involved_update",
 								},
 								false,
 							),
@@ -674,39 +675,7 @@ func resourceZabbixAction() *schema.Resource {
 	}
 }
 
-func validateActionOperationMessages(operations []interface{}) error {
-	for i, op := range operations {
-		operation := op.(map[string]interface{})
-		if messages, exists := operation["message"]; exists {
-			messagesList := messages.([]interface{})
-			for j, msg := range messagesList {
-				message := msg.(map[string]interface{})
-				defaultMessage := message["default_message"].(bool)
-				subject := message["subject"].(string)
-				messageText := message["message"].(string)
-
-				if defaultMessage && (subject != "" || messageText != "") {
-					return fmt.Errorf("operation[%d].message[%d]: cannot specify 'subject' or 'message' when 'default_message' is true. "+
-						"Please remove 'subject' and 'message' fields or set them to empty strings (\"\") when using default_message = true", i, j)
-				}
-			}
-		}
-	}
-	return nil
-}
-
 func createActionObject(d *schema.ResourceData, api *zabbix.API) (*zabbix.Action, error) {
-	// Validate operation messages
-	if err := validateActionOperationMessages(d.Get("operation").([]interface{})); err != nil {
-		return nil, err
-	}
-	if err := validateActionOperationMessages(d.Get("recovery_operation").([]interface{})); err != nil {
-		return nil, err
-	}
-	if err := validateActionOperationMessages(d.Get("update_operation").([]interface{})); err != nil {
-		return nil, err
-	}
-
 	status := zabbix.Disabled
 	if d.Get("enabled").(bool) {
 		status = zabbix.Enabled
@@ -880,6 +849,7 @@ func createActionRecoveryOperationObject(lst []interface{}, api *zabbix.API) (it
 				return nil, err
 			}
 		}
+		}
 
 		item := zabbix.ActionRecoveryOperation{
 			OperationType:     opeType,
@@ -929,6 +899,7 @@ func createActionUpdateOperationObject(lst []interface{}, api *zabbix.API) (item
 			if err != nil {
 				return nil, err
 			}
+		}
 		}
 
 		item := zabbix.ActionUpdateOperation{
@@ -1086,17 +1057,20 @@ func createActionOperationMessage(lst []interface{}, api *zabbix.API) (
 	useDefaultMessage := m["default_message"].(bool)
 	if useDefaultMessage {
 		defMsg = "1"
+		// When using default message, subject and message must be empty
+		subject := m["subject"].(string)
+		message := m["message"].(string)
+		if subject != "" || message != "" {
+			err = fmt.Errorf("subject and message must be empty when default_message is true")
+			return
+		}
 	}
 
 	msg = &zabbix.ActionOperationMessage{
 		DefaultMessage: defMsg,
 		MediaTypeID:    m["media_type_id"].(string),
-	}
-
-	// Only include custom subject and message when not using default message
-	if !useDefaultMessage {
-		msg.Message = m["message"].(string)
-		msg.Subject = m["subject"].(string)
+		Message:        m["message"].(string),
+		Subject:        m["subject"].(string),
 	}
 
 	targets := m["target"].(*schema.Set).List()
@@ -1330,14 +1304,11 @@ func readActionRecoveryOperations(ops zabbix.ActionRecoveryOperations, api *zabb
 		}
 		m["command"] = commands
 
-		// Do not set message for notify_all_involved type
-		if v.OperationType != zabbix.NotifyRecoveryAllInvolved {
-			messages, err := readActionOperationMessages(v.Message, v.MessageUserGroups, v.MessageUsers, api)
-			if err != nil {
-				return nil, err
-			}
-			m["message"] = messages
+		messages, err := readActionOperationMessages(v.Message, v.MessageUserGroups, v.MessageUsers, api)
+		if err != nil {
+			return nil, err
 		}
+		m["message"] = messages
 
 		lst = append(lst, m)
 	}
@@ -1357,14 +1328,11 @@ func readActionUpdateOperations(ops zabbix.ActionUpdateOperations, api *zabbix.A
 		}
 		m["command"] = commands
 
-		// Do not set message for notify_all_involved type
-		if v.OperationType != zabbix.NotifyUpdateAllInvolved {
-			messages, err := readActionOperationMessages(v.Message, v.MessageUserGroups, v.MessageUsers, api)
-			if err != nil {
-				return nil, err
-			}
-			m["message"] = messages
+		messages, err := readActionOperationMessages(v.Message, v.MessageUserGroups, v.MessageUsers, api)
+		if err != nil {
+			return nil, err
 		}
+		m["message"] = messages
 
 		lst = append(lst, m)
 	}
@@ -1507,19 +1475,10 @@ func readActionOperationMessages(
 	}
 
 	m := map[string]interface{}{}
-	useDefaultMessage := msg.DefaultMessage == "1"
-	m["default_message"] = useDefaultMessage
+	m["default_message"] = msg.DefaultMessage == "1"
 	m["media_type_id"] = msg.MediaTypeID
-
-	// When using default message, always set subject and message to empty in state
-	// to avoid diff issues when user changes from custom to default message
-	if useDefaultMessage {
-		m["subject"] = ""
-		m["message"] = ""
-	} else {
-		m["subject"] = msg.Subject
-		m["message"] = msg.Message
-	}
+	m["subject"] = msg.Subject
+	m["message"] = msg.Message
 
 	target, err := readActionOperationMessageTargets(groups, users, api)
 	if err != nil {
