@@ -751,6 +751,11 @@ func createActionObject(d *schema.ResourceData, api *zabbix.API) (*zabbix.Action
 		period = d.Get("default_step_duration").(string)
 	}
 
+	conditions, err := createActionConditionObject(d.Get("condition").([]interface{}), api)
+	if err != nil {
+		return nil, err
+	}
+
 	action := zabbix.Action{
 		ActionID:        d.Id(),
 		Period:          period,
@@ -764,7 +769,7 @@ func createActionObject(d *schema.ResourceData, api *zabbix.API) (*zabbix.Action
 		AckSubject:      d.Get("update_subject").(string),
 		Status:          status,
 		Filter: zabbix.ActionFilter{
-			Conditions:     createActionConditionObject(d.Get("condition").([]interface{})),
+			Conditions:     conditions,
 			EvaluationType: StringActionEvaluationTypeMap[d.Get("calculation").(string)],
 			Formula:        d.Get("formula").(string),
 		},
@@ -785,14 +790,25 @@ func createActionObject(d *schema.ResourceData, api *zabbix.API) (*zabbix.Action
 	return &action, nil
 }
 
-// FIXME: Several type need to convert from value to ID
-func createActionConditionObject(lst []interface{}) (items zabbix.ActionFilterConditions) {
+func createActionConditionObject(lst []interface{}, api *zabbix.API) (items zabbix.ActionFilterConditions, err error) {
 	for _, v := range lst {
 		m := v.(map[string]interface{})
+		conditionType := m["type"].(string)
+		value := m["value"].(string)
+
+		// Convert host group name to ID if condition type is host_group
+		if conditionType == "host_group" {
+			groupID, err := getHostGroupIDByName(value, api)
+			if err != nil {
+				return nil, err
+			}
+			value = groupID
+		}
+
 		item := zabbix.ActionFilterCondition{
 			ConditionID:   m["condition_id"].(string),
-			ConditionType: StringActionConditionTypeMap[m["type"].(string)],
-			Value:         m["value"].(string),
+			ConditionType: StringActionConditionTypeMap[conditionType],
+			Value:         value,
 			Value2:        m["value2"].(string),
 			Operator:      StringActionFilterConditionOperatorMap[m["operator"].(string)],
 		}
@@ -800,6 +816,30 @@ func createActionConditionObject(lst []interface{}) (items zabbix.ActionFilterCo
 	}
 
 	return
+}
+
+// getHostGroupIDByName converts host group name to ID
+func getHostGroupIDByName(name string, api *zabbix.API) (string, error) {
+	res, err := api.HostGroupsGet(zabbix.Params{
+		"output": []string{"groupid"},
+		"filter": map[string]interface{}{"name": name},
+	})
+	if err != nil {
+		return "", err
+	}
+	if len(res) == 0 {
+		return "", fmt.Errorf("host group not found: %s", name)
+	}
+	return res[0].GroupID, nil
+}
+
+// getHostGroupNameByID converts host group ID to name
+func getHostGroupNameByID(id string, api *zabbix.API) (string, error) {
+	group, err := api.HostGroupGetByID(id)
+	if err != nil {
+		return "", err
+	}
+	return group.Name, nil
 }
 
 func createActionOperationObject(supportEscalation bool, lst []interface{}, api *zabbix.API) (items zabbix.ActionOperations, err error) {
@@ -1275,9 +1315,20 @@ func readActionConditions(cds zabbix.ActionFilterConditions, api *zabbix.API) (l
 	for _, v := range cds {
 		m := map[string]interface{}{}
 		m["condition_id"] = v.ConditionID
-		m["type"] = ActionConditionTypeStringMap[v.ConditionType]
-		// FIXME: Several type need to convert from ID to value
-		m["value"] = v.Value
+		conditionType := ActionConditionTypeStringMap[v.ConditionType]
+		m["type"] = conditionType
+
+		value := v.Value
+		// Convert host group ID to name if condition type is host_group
+		if conditionType == "host_group" {
+			groupName, err := getHostGroupNameByID(value, api)
+			if err != nil {
+				return nil, err
+			}
+			value = groupName
+		}
+
+		m["value"] = value
 		m["value2"] = v.Value2
 		m["formula_id"] = v.FormulaID
 		m["operator"] = ActionFilterConditionOperatorStringMap[v.Operator]
