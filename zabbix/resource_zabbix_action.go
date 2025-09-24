@@ -1141,11 +1141,17 @@ func createActionOperationMessage(lst []interface{}, api *zabbix.API) (
 		}
 	}
 
+	var messageText, subjectText string
+	if !useDefaultMessage {
+		messageText = m["message"].(string)
+		subjectText = m["subject"].(string)
+	}
+
 	msg = &zabbix.ActionOperationMessage{
 		DefaultMessage: defMsg,
 		MediaTypeID:    m["media_type_id"].(string),
-		Message:        m["message"].(string),
-		Subject:        m["subject"].(string),
+		Message:        messageText,
+		Subject:        subjectText,
 	}
 
 	var targets []interface{}
@@ -1564,10 +1570,15 @@ func readActionOperationMessages(
 	}
 
 	m := map[string]interface{}{}
-	m["default_message"] = msg.DefaultMessage == "1"
+	useDefaultMessage := msg.DefaultMessage == "1"
+	m["default_message"] = useDefaultMessage
 	m["media_type_id"] = msg.MediaTypeID
-	m["subject"] = msg.Subject
-	m["message"] = msg.Message
+
+	// When using default message, don't set subject and message to let Terraform use schema defaults
+	if !useDefaultMessage {
+		m["subject"] = msg.Subject
+		m["message"] = msg.Message
+	}
 
 	target, err := readActionOperationMessageTargets(groups, users, api)
 	if err != nil {
@@ -1657,11 +1668,17 @@ func createActionOperationMessageForNotifyAllInvolved(lst []interface{}) (
 		}
 	}
 
+	var messageText, subjectText string
+	if !useDefaultMessage {
+		messageText = m["message"].(string)
+		subjectText = m["subject"].(string)
+	}
+
 	msg = &zabbix.ActionOperationMessage{
 		DefaultMessage: defMsg,
 		MediaTypeID:    "", // Empty for notify_all_involved operations (omitempty will exclude it)
-		Message:        m["message"].(string),
-		Subject:        m["subject"].(string),
+		Message:        messageText,
+		Subject:        subjectText,
 	}
 
 	// For notify_all_involved operations, targets are not needed and should be empty
