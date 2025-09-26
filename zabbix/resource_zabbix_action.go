@@ -838,7 +838,8 @@ func createActionOperationObject(supportEscalation bool, lst []interface{}, api 
 			return nil, err
 		}
 
-		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), api)
+		opeType := StringActionOperationTypeMap[m["type"].(string)]
+		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), api, opeType)
 		if err != nil {
 			return nil, err
 		}
@@ -864,7 +865,7 @@ func createActionOperationObject(supportEscalation bool, lst []interface{}, api 
 		}
 
 		item := zabbix.ActionOperation{
-			OperationType:     StringActionOperationTypeMap[m["type"].(string)],
+			OperationType:     opeType,
 			Period:            period,
 			StepFrom:          stepFrom,
 			StepTo:            stepTo,
@@ -902,16 +903,10 @@ func createActionRecoveryOperationObject(lst []interface{}, api *zabbix.API) (it
 
 		if t == "notify_recovery_all_involved" {
 			opeType = zabbix.NotifyRecoveryAllInvolved
-			// For notify_recovery_all_involved, create message without targets
-			msg, msgUserGroups, msgUsers, err = createActionOperationMessageForNotifyAllInvolved(m["message"].([]interface{}))
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			msg, msgUserGroups, msgUsers, err = createActionOperationMessage(m["message"].([]interface{}), api)
-			if err != nil {
-				return nil, err
-			}
+		}
+		msg, msgUserGroups, msgUsers, err = createActionOperationMessage(m["message"].([]interface{}), api, opeType)
+		if err != nil {
+			return nil, err
 		}
 
 		item := zabbix.ActionRecoveryOperation{
@@ -947,16 +942,10 @@ func createActionUpdateOperationObject(lst []interface{}, api *zabbix.API) (item
 
 		if t == "notify_update_all_involved" {
 			opeType = zabbix.NotifyUpdateAllInvolved
-			// For notify_update_all_involved, create message without targets
-			msg, msgUserGroups, msgUsers, err = createActionOperationMessageForNotifyAllInvolved(m["message"].([]interface{}))
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			msg, msgUserGroups, msgUsers, err = createActionOperationMessage(m["message"].([]interface{}), api)
-			if err != nil {
-				return nil, err
-			}
+		}
+		msg, msgUserGroups, msgUsers, err = createActionOperationMessage(m["message"].([]interface{}), api, opeType)
+		if err != nil {
+			return nil, err
 		}
 
 		item := zabbix.ActionUpdateOperation{
@@ -1100,7 +1089,7 @@ func createActionOperationHostGroups(lst []interface{}, api *zabbix.API) (
 	return
 }
 
-func createActionOperationMessage(lst []interface{}, api *zabbix.API) (
+func createActionOperationMessage(lst []interface{}, api *zabbix.API, operationType zabbix.ActionOperationType) (
 	msg *zabbix.ActionOperationMessage,
 	groups zabbix.ActionOperationMessageUserGroups,
 	users zabbix.ActionOperationMessageUsers,
@@ -1129,11 +1118,22 @@ func createActionOperationMessage(lst []interface{}, api *zabbix.API) (
 		subjectText = m["subject"].(string)
 	}
 
+	// For notify_all_involved operations, MediaTypeID should be empty
+	var mediaTypeID string
+	if operationType != zabbix.NotifyRecoveryAllInvolved && operationType != zabbix.NotifyUpdateAllInvolved {
+		mediaTypeID = m["media_type_id"].(string)
+	}
+
 	msg = &zabbix.ActionOperationMessage{
 		DefaultMessage: defMsg,
-		MediaTypeID:    m["media_type_id"].(string),
+		MediaTypeID:    mediaTypeID,
 		Message:        messageText,
 		Subject:        subjectText,
+	}
+
+	// For notify_all_involved operations, targets are not needed and should be ignored
+	if operationType == zabbix.NotifyRecoveryAllInvolved || operationType == zabbix.NotifyUpdateAllInvolved {
+		return // Empty groups and users are already initialized
 	}
 
 	var targets []interface{}
@@ -1622,50 +1622,6 @@ func readActionOperationMessageTargets(
 		}
 	}
 
-	return
-}
-
-// createActionOperationMessageForNotifyAllInvolved creates message for notify_all_involved operations
-// which don't require target specification (targets are ignored)
-func createActionOperationMessageForNotifyAllInvolved(lst []interface{}) (
-	msg *zabbix.ActionOperationMessage,
-	groups zabbix.ActionOperationMessageUserGroups,
-	users zabbix.ActionOperationMessageUsers,
-	err error) {
-	if len(lst) == 0 {
-		return
-	}
-	m := lst[0].(map[string]interface{})
-
-	defMsg := "0"
-	useDefaultMessage := m["default_message"].(bool)
-	if useDefaultMessage {
-		defMsg = "1"
-		// When using default message, subject and message must be empty
-		subject := m["subject"].(string)
-		message := m["message"].(string)
-		if subject != "" || message != "" {
-			err = fmt.Errorf("subject and message must be empty when default_message is true")
-			return
-		}
-	}
-
-	var messageText, subjectText string
-	if !useDefaultMessage {
-		messageText = m["message"].(string)
-		subjectText = m["subject"].(string)
-	}
-
-	msg = &zabbix.ActionOperationMessage{
-		DefaultMessage: defMsg,
-		MediaTypeID:    "", // Empty for notify_all_involved operations (omitempty will exclude it)
-		Message:        messageText,
-		Subject:        subjectText,
-	}
-
-	// For notify_all_involved operations, targets are not needed and should be empty
-	// Even if targets are specified in the Terraform config, they will be ignored
-	// groups and users are already initialized as empty slices
 	return
 }
 
