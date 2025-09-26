@@ -125,18 +125,19 @@ var ActionFilterConditionOperatorStringMap = map[zabbix.ActionFilterConditionOpe
 }
 
 var StringActionOperationTypeMap = map[string]zabbix.ActionOperationType{
-	"send_message":            zabbix.SendMessage,
-	"remote_command":          zabbix.RemoteCommand,
-	"add_host":                zabbix.AddHost,
-	"remove_host":             zabbix.RemoveHost,
-	"add_to_host_group":       zabbix.AddToHostGroup,
-	"remove_from_host_group":  zabbix.RemoveFromHostGroup,
-	"link_to_template":        zabbix.LinkToTemplate,
-	"unlink_from_template":    zabbix.UnlinkFromTemplate,
-	"enable_host":             zabbix.EnableHost,
-	"disable_host":            zabbix.DisableHost,
-	"set_host_inventory_mode": zabbix.SetHostInventoryMode,
-	// "notify_all_involved": ActionOperationType is different between recovery operation and update operation
+	"send_message":                 zabbix.SendMessage,
+	"remote_command":               zabbix.RemoteCommand,
+	"add_host":                     zabbix.AddHost,
+	"remove_host":                  zabbix.RemoveHost,
+	"add_to_host_group":            zabbix.AddToHostGroup,
+	"remove_from_host_group":       zabbix.RemoveFromHostGroup,
+	"link_to_template":             zabbix.LinkToTemplate,
+	"unlink_from_template":         zabbix.UnlinkFromTemplate,
+	"enable_host":                  zabbix.EnableHost,
+	"disable_host":                 zabbix.DisableHost,
+	"set_host_inventory_mode":      zabbix.SetHostInventoryMode,
+	"notify_recovery_all_involved": zabbix.NotifyRecoveryAllInvolved,
+	"notify_update_all_involved":   zabbix.NotifyUpdateAllInvolved,
 }
 
 var ActionOperationTypeStringMap = map[zabbix.ActionOperationType]string{
@@ -151,8 +152,8 @@ var ActionOperationTypeStringMap = map[zabbix.ActionOperationType]string{
 	zabbix.EnableHost:                "enable_host",
 	zabbix.DisableHost:               "disable_host",
 	zabbix.SetHostInventoryMode:      "set_host_inventory_mode",
-	zabbix.NotifyRecoveryAllInvolved: "notify_all_involved",
-	zabbix.NotifyUpdateAllInvolved:   "notify_all_involved",
+	zabbix.NotifyRecoveryAllInvolved: "notify_recovery_all_involved",
+	zabbix.NotifyUpdateAllInvolved:   "notify_update_all_involved",
 }
 
 var StringActionOperationCommandTypeMap = map[string]zabbix.ActionOperationCommandType{
@@ -320,6 +321,53 @@ var actionOperationMessageSchema = &schema.Resource{
 			Type:     schema.TypeSet,
 			Required: true,
 			MinItems: 1,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"type": {
+						Type:     schema.TypeString,
+						Required: true,
+						ValidateFunc: validation.StringInSlice(
+							[]string{"user_group", "user"},
+							false,
+						),
+					},
+					"value": {
+						Type:     schema.TypeString,
+						Required: true,
+					},
+				},
+			},
+			Set: OperationMessageHash,
+		},
+	},
+}
+
+var actionRecoveryUpdateOperationMessageSchema = &schema.Resource{
+	Schema: map[string]*schema.Schema{
+		"default_message": {
+			Type:     schema.TypeBool,
+			Optional: true,
+			// FIXME: default true on Zabbix 5.0 or later
+			Default: false,
+		},
+		"media_type_id": {
+			Type:     schema.TypeString,
+			Optional: true,
+			Default:  "0", // NOTE: ALL
+		},
+		"subject": {
+			Type:     schema.TypeString,
+			Optional: true,
+			Default:  "",
+		},
+		"message": {
+			Type:     schema.TypeString,
+			Optional: true,
+			Default:  "",
+		},
+		"target": {
+			Type:     schema.TypeSet,
+			Optional: true, // Optional for recovery/update operations (ignored for notify_all_involved)
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"type": {
@@ -614,7 +662,7 @@ func resourceZabbixAction() *schema.Resource {
 								[]string{
 									"send_message",
 									"remote_command",
-									"notify_all_involved",
+									"notify_recovery_all_involved",
 								},
 								false,
 							),
@@ -629,7 +677,7 @@ func resourceZabbixAction() *schema.Resource {
 							Type:     schema.TypeList,
 							Optional: true,
 							MaxItems: 1,
-							Elem:     actionOperationMessageSchema,
+							Elem:     actionRecoveryUpdateOperationMessageSchema,
 						},
 					},
 				},
@@ -650,7 +698,7 @@ func resourceZabbixAction() *schema.Resource {
 								[]string{
 									"send_message",
 									"remote_command",
-									"notify_all_involved",
+									"notify_update_all_involved",
 								},
 								false,
 							),
@@ -665,7 +713,7 @@ func resourceZabbixAction() *schema.Resource {
 							Type:     schema.TypeList,
 							Optional: true,
 							MaxItems: 1,
-							Elem:     actionOperationMessageSchema,
+							Elem:     actionRecoveryUpdateOperationMessageSchema,
 						},
 					},
 				},
@@ -703,6 +751,11 @@ func createActionObject(d *schema.ResourceData, api *zabbix.API) (*zabbix.Action
 		period = d.Get("default_step_duration").(string)
 	}
 
+	conditions, err := createActionConditionObject(d.Get("condition").([]interface{}), api)
+	if err != nil {
+		return nil, err
+	}
+
 	action := zabbix.Action{
 		ActionID:        d.Id(),
 		Period:          period,
@@ -716,7 +769,7 @@ func createActionObject(d *schema.ResourceData, api *zabbix.API) (*zabbix.Action
 		AckSubject:      d.Get("update_subject").(string),
 		Status:          status,
 		Filter: zabbix.ActionFilter{
-			Conditions:     createActionConditionObject(d.Get("condition").([]interface{})),
+			Conditions:     conditions,
 			EvaluationType: StringActionEvaluationTypeMap[d.Get("calculation").(string)],
 			Formula:        d.Get("formula").(string),
 		},
@@ -737,14 +790,31 @@ func createActionObject(d *schema.ResourceData, api *zabbix.API) (*zabbix.Action
 	return &action, nil
 }
 
-// FIXME: Several type need to convert from value to ID
-func createActionConditionObject(lst []interface{}) (items zabbix.ActionFilterConditions) {
+func createActionConditionObject(lst []interface{}, api *zabbix.API) (items zabbix.ActionFilterConditions, err error) {
 	for _, v := range lst {
 		m := v.(map[string]interface{})
+		conditionType := m["type"].(string)
+		value := m["value"].(string)
+
+		// Convert host group name to ID if condition type is host_group
+		if conditionType == "host_group" {
+			res, err := api.HostGroupsGet(zabbix.Params{
+				"output": []string{"groupid"},
+				"filter": map[string]interface{}{"name": value},
+			})
+			if err != nil {
+				return nil, err
+			}
+			if len(res) == 0 {
+				return nil, fmt.Errorf("host group not found: %s", value)
+			}
+			value = res[0].GroupID
+		}
+
 		item := zabbix.ActionFilterCondition{
 			ConditionID:   m["condition_id"].(string),
-			ConditionType: StringActionConditionTypeMap[m["type"].(string)],
-			Value:         m["value"].(string),
+			ConditionType: StringActionConditionTypeMap[conditionType],
+			Value:         value,
 			Value2:        m["value2"].(string),
 			Operator:      StringActionFilterConditionOperatorMap[m["operator"].(string)],
 		}
@@ -768,7 +838,8 @@ func createActionOperationObject(supportEscalation bool, lst []interface{}, api 
 			return nil, err
 		}
 
-		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), api)
+		opeType := StringActionOperationTypeMap[m["type"].(string)]
+		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), api, opeType)
 		if err != nil {
 			return nil, err
 		}
@@ -794,7 +865,7 @@ func createActionOperationObject(supportEscalation bool, lst []interface{}, api 
 		}
 
 		item := zabbix.ActionOperation{
-			OperationType:     StringActionOperationTypeMap[m["type"].(string)],
+			OperationType:     opeType,
 			Period:            period,
 			StepFrom:          stepFrom,
 			StepTo:            stepTo,
@@ -823,15 +894,19 @@ func createActionRecoveryOperationObject(lst []interface{}, api *zabbix.API) (it
 			return nil, err
 		}
 
-		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), api)
-		if err != nil {
-			return nil, err
-		}
-
 		t := m["type"].(string)
 		opeType := StringActionOperationTypeMap[t]
-		if t == "notify_all_involved" {
+
+		var msg *zabbix.ActionOperationMessage
+		var msgUserGroups zabbix.ActionOperationMessageUserGroups
+		var msgUsers zabbix.ActionOperationMessageUsers
+
+		if t == "notify_recovery_all_involved" {
 			opeType = zabbix.NotifyRecoveryAllInvolved
+		}
+		msg, msgUserGroups, msgUsers, err = createActionOperationMessage(m["message"].([]interface{}), api, opeType)
+		if err != nil {
+			return nil, err
 		}
 
 		item := zabbix.ActionRecoveryOperation{
@@ -858,15 +933,19 @@ func createActionUpdateOperationObject(lst []interface{}, api *zabbix.API) (item
 			return nil, err
 		}
 
-		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), api)
-		if err != nil {
-			return nil, err
-		}
-
 		t := m["type"].(string)
 		opeType := StringActionOperationTypeMap[t]
-		if t == "notify_all_involved" {
+
+		var msg *zabbix.ActionOperationMessage
+		var msgUserGroups zabbix.ActionOperationMessageUserGroups
+		var msgUsers zabbix.ActionOperationMessageUsers
+
+		if t == "notify_update_all_involved" {
 			opeType = zabbix.NotifyUpdateAllInvolved
+		}
+		msg, msgUserGroups, msgUsers, err = createActionOperationMessage(m["message"].([]interface{}), api, opeType)
+		if err != nil {
+			return nil, err
 		}
 
 		item := zabbix.ActionUpdateOperation{
@@ -1010,7 +1089,7 @@ func createActionOperationHostGroups(lst []interface{}, api *zabbix.API) (
 	return
 }
 
-func createActionOperationMessage(lst []interface{}, api *zabbix.API) (
+func createActionOperationMessage(lst []interface{}, api *zabbix.API, operationType zabbix.ActionOperationType) (
 	msg *zabbix.ActionOperationMessage,
 	groups zabbix.ActionOperationMessageUserGroups,
 	users zabbix.ActionOperationMessageUsers,
@@ -1021,18 +1100,46 @@ func createActionOperationMessage(lst []interface{}, api *zabbix.API) (
 	m := lst[0].(map[string]interface{})
 
 	defMsg := "0"
-	if m["default_message"].(bool) {
+	useDefaultMessage := m["default_message"].(bool)
+	if useDefaultMessage {
 		defMsg = "1"
+		// When using default message, subject and message must be empty
+		subject := m["subject"].(string)
+		message := m["message"].(string)
+		if subject != "" || message != "" {
+			err = fmt.Errorf("subject and message must be empty when default_message is true")
+			return
+		}
+	}
+
+	var messageText, subjectText string
+	if !useDefaultMessage {
+		messageText = m["message"].(string)
+		subjectText = m["subject"].(string)
+	}
+
+	// For notify_all_involved operations, MediaTypeID should be empty
+	var mediaTypeID string
+	if operationType != zabbix.NotifyRecoveryAllInvolved && operationType != zabbix.NotifyUpdateAllInvolved {
+		mediaTypeID = m["media_type_id"].(string)
 	}
 
 	msg = &zabbix.ActionOperationMessage{
 		DefaultMessage: defMsg,
-		MediaTypeID:    m["media_type_id"].(string),
-		Message:        m["message"].(string),
-		Subject:        m["subject"].(string),
+		MediaTypeID:    mediaTypeID,
+		Message:        messageText,
+		Subject:        subjectText,
 	}
 
-	targets := m["target"].(*schema.Set).List()
+	// For notify_all_involved operations, targets are not needed and should be ignored
+	if operationType == zabbix.NotifyRecoveryAllInvolved || operationType == zabbix.NotifyUpdateAllInvolved {
+		return // Empty groups and users are already initialized
+	}
+
+	var targets []interface{}
+	if targetSet, exists := m["target"]; exists && targetSet != nil {
+		targets = targetSet.(*schema.Set).List()
+	}
 
 	var groupNames []string
 	var userNames []string
@@ -1196,9 +1303,20 @@ func readActionConditions(cds zabbix.ActionFilterConditions, api *zabbix.API) (l
 	for _, v := range cds {
 		m := map[string]interface{}{}
 		m["condition_id"] = v.ConditionID
-		m["type"] = ActionConditionTypeStringMap[v.ConditionType]
-		// FIXME: Several type need to convert from ID to value
-		m["value"] = v.Value
+		conditionType := ActionConditionTypeStringMap[v.ConditionType]
+		m["type"] = conditionType
+
+		value := v.Value
+		// Convert host group ID to name if condition type is host_group
+		if conditionType == "host_group" {
+			group, err := api.HostGroupGetByID(value)
+			if err != nil {
+				return nil, err
+			}
+			value = group.Name
+		}
+
+		m["value"] = value
 		m["value2"] = v.Value2
 		m["formula_id"] = v.FormulaID
 		m["operator"] = ActionFilterConditionOperatorStringMap[v.Operator]
@@ -1434,10 +1552,15 @@ func readActionOperationMessages(
 	}
 
 	m := map[string]interface{}{}
-	m["default_message"] = msg.DefaultMessage == "1"
+	useDefaultMessage := msg.DefaultMessage == "1"
+	m["default_message"] = useDefaultMessage
 	m["media_type_id"] = msg.MediaTypeID
-	m["subject"] = msg.Subject
-	m["message"] = msg.Message
+
+	// When using default message, don't set subject and message to let Terraform use schema defaults
+	if !useDefaultMessage {
+		m["subject"] = msg.Subject
+		m["message"] = msg.Message
+	}
 
 	target, err := readActionOperationMessageTargets(groups, users, api)
 	if err != nil {
