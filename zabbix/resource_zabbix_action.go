@@ -136,8 +136,8 @@ var StringActionOperationTypeMap = map[string]zabbix.ActionOperationType{
 	"enable_host":                  zabbix.EnableHost,
 	"disable_host":                 zabbix.DisableHost,
 	"set_host_inventory_mode":      zabbix.SetHostInventoryMode,
-	"notify_all_involved_recovery": zabbix.NotifyRecoveryAllInvolved,
-	"notify_all_involved_update":   zabbix.NotifyUpdateAllInvolved,
+	"notify_recovery_all_involved": zabbix.NotifyRecoveryAllInvolved,
+	"notify_update_all_involved":   zabbix.NotifyUpdateAllInvolved,
 }
 
 var ActionOperationTypeStringMap = map[zabbix.ActionOperationType]string{
@@ -152,8 +152,8 @@ var ActionOperationTypeStringMap = map[zabbix.ActionOperationType]string{
 	zabbix.EnableHost:                "enable_host",
 	zabbix.DisableHost:               "disable_host",
 	zabbix.SetHostInventoryMode:      "set_host_inventory_mode",
-	zabbix.NotifyRecoveryAllInvolved: "notify_all_involved_recovery",
-	zabbix.NotifyUpdateAllInvolved:   "notify_all_involved_update",
+	zabbix.NotifyRecoveryAllInvolved: "notify_recovery_all_involved",
+	zabbix.NotifyUpdateAllInvolved:   "notify_update_all_involved",
 }
 
 var StringActionOperationCommandTypeMap = map[string]zabbix.ActionOperationCommandType{
@@ -662,7 +662,7 @@ func resourceZabbixAction() *schema.Resource {
 								[]string{
 									"send_message",
 									"remote_command",
-									"notify_all_involved_recovery",
+									"notify_recovery_all_involved",
 								},
 								false,
 							),
@@ -698,7 +698,7 @@ func resourceZabbixAction() *schema.Resource {
 								[]string{
 									"send_message",
 									"remote_command",
-									"notify_all_involved_update",
+									"notify_update_all_involved",
 								},
 								false,
 							),
@@ -900,9 +900,9 @@ func createActionRecoveryOperationObject(lst []interface{}, api *zabbix.API) (it
 		var msgUserGroups zabbix.ActionOperationMessageUserGroups
 		var msgUsers zabbix.ActionOperationMessageUsers
 
-		if t == "notify_all_involved_recovery" {
+		if t == "notify_recovery_all_involved" {
 			opeType = zabbix.NotifyRecoveryAllInvolved
-			// For notify_all_involved_recovery, create message without targets
+			// For notify_recovery_all_involved, create message without targets
 			msg, msgUserGroups, msgUsers, err = createActionOperationMessageForNotifyAllInvolved(m["message"].([]interface{}))
 			if err != nil {
 				return nil, err
@@ -945,9 +945,9 @@ func createActionUpdateOperationObject(lst []interface{}, api *zabbix.API) (item
 		var msgUserGroups zabbix.ActionOperationMessageUserGroups
 		var msgUsers zabbix.ActionOperationMessageUsers
 
-		if t == "notify_all_involved_update" {
+		if t == "notify_update_all_involved" {
 			opeType = zabbix.NotifyUpdateAllInvolved
-			// For notify_all_involved_update, create message without targets
+			// For notify_update_all_involved, create message without targets
 			msg, msgUserGroups, msgUsers, err = createActionOperationMessageForNotifyAllInvolved(m["message"].([]interface{}))
 			if err != nil {
 				return nil, err
