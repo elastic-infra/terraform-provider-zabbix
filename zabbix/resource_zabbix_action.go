@@ -798,11 +798,17 @@ func createActionConditionObject(lst []interface{}, api *zabbix.API) (items zabb
 
 		// Convert host group name to ID if condition type is host_group
 		if conditionType == "host_group" {
-			groupID, err := getHostGroupIDByName(value, api)
+			res, err := api.HostGroupsGet(zabbix.Params{
+				"output": []string{"groupid"},
+				"filter": map[string]interface{}{"name": value},
+			})
 			if err != nil {
 				return nil, err
 			}
-			value = groupID
+			if len(res) == 0 {
+				return nil, fmt.Errorf("host group not found: %s", value)
+			}
+			value = res[0].GroupID
 		}
 
 		item := zabbix.ActionFilterCondition{
@@ -816,30 +822,6 @@ func createActionConditionObject(lst []interface{}, api *zabbix.API) (items zabb
 	}
 
 	return
-}
-
-// getHostGroupIDByName converts host group name to ID
-func getHostGroupIDByName(name string, api *zabbix.API) (string, error) {
-	res, err := api.HostGroupsGet(zabbix.Params{
-		"output": []string{"groupid"},
-		"filter": map[string]interface{}{"name": name},
-	})
-	if err != nil {
-		return "", err
-	}
-	if len(res) == 0 {
-		return "", fmt.Errorf("host group not found: %s", name)
-	}
-	return res[0].GroupID, nil
-}
-
-// getHostGroupNameByID converts host group ID to name
-func getHostGroupNameByID(id string, api *zabbix.API) (string, error) {
-	group, err := api.HostGroupGetByID(id)
-	if err != nil {
-		return "", err
-	}
-	return group.Name, nil
 }
 
 func createActionOperationObject(supportEscalation bool, lst []interface{}, api *zabbix.API) (items zabbix.ActionOperations, err error) {
@@ -1327,11 +1309,11 @@ func readActionConditions(cds zabbix.ActionFilterConditions, api *zabbix.API) (l
 		value := v.Value
 		// Convert host group ID to name if condition type is host_group
 		if conditionType == "host_group" {
-			groupName, err := getHostGroupNameByID(value, api)
+			group, err := api.HostGroupGetByID(value)
 			if err != nil {
 				return nil, err
 			}
-			value = groupName
+			value = group.Name
 		}
 
 		m["value"] = value
