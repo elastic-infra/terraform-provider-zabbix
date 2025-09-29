@@ -1081,47 +1081,34 @@ func createActionOperationMessage(lst []interface{}, operationType zabbix.Action
 	}
 	m := lst[0].(map[string]interface{})
 
-	defMsg := "0"
-	useDefaultMessage := m["default_message"].(bool)
-	if useDefaultMessage {
-		defMsg = "1"
+	subject := m["subject"].(string)
+	message := m["message"].(string)
+
+	var defMsg, mediaTypeID string
+	if m["default_message"].(bool) {
 		// When using default message, subject and message must be empty
-		subject := m["subject"].(string)
-		message := m["message"].(string)
 		if subject != "" || message != "" {
 			err = fmt.Errorf("subject and message must be empty when default_message is true")
 			return
 		}
-	}
-
-	var messageText, subjectText string
-	if !useDefaultMessage {
-		messageText = m["message"].(string)
-		subjectText = m["subject"].(string)
+		defMsg = "1"
+	} else {
+		defMsg = "0"
 	}
 
 	// For notify_all_involved operations, MediaTypeID should be empty
-	var mediaTypeID string
-	if operationType != zabbix.NotifyRecoveryAllInvolved && operationType != zabbix.NotifyUpdateAllInvolved {
+	if !(operationType == zabbix.NotifyRecoveryAllInvolved || operationType == zabbix.NotifyUpdateAllInvolved) {
 		mediaTypeID = m["media_type_id"].(string)
 	}
 
 	msg = &zabbix.ActionOperationMessage{
 		DefaultMessage: defMsg,
 		MediaTypeID:    mediaTypeID,
-		Message:        messageText,
-		Subject:        subjectText,
+		Message:        message,
+		Subject:        subject,
 	}
 
-	// For notify_all_involved operations, targets are not needed and should be ignored
-	if operationType == zabbix.NotifyRecoveryAllInvolved || operationType == zabbix.NotifyUpdateAllInvolved {
-		return // Empty groups and users are already initialized
-	}
-
-	var targets []interface{}
-	if targetSet, exists := m["target"]; exists && targetSet != nil {
-		targets = targetSet.(*schema.Set).List()
-	}
+	targets := m["target"].(*schema.Set).List()
 
 	var groupNames []string
 	var userNames []string
