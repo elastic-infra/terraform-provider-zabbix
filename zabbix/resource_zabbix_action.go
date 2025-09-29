@@ -894,17 +894,8 @@ func createActionRecoveryOperationObject(lst []interface{}, api *zabbix.API) (it
 			return nil, err
 		}
 
-		t := m["type"].(string)
-		opeType := StringActionOperationTypeMap[t]
-
-		var msg *zabbix.ActionOperationMessage
-		var msgUserGroups zabbix.ActionOperationMessageUserGroups
-		var msgUsers zabbix.ActionOperationMessageUsers
-
-		if t == "notify_recovery_all_involved" {
-			opeType = zabbix.NotifyRecoveryAllInvolved
-		}
-		msg, msgUserGroups, msgUsers, err = createActionOperationMessage(m["message"].([]interface{}), api, opeType)
+		opeType := StringActionOperationTypeMap[m["type"].(string)]
+		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), api, opeType)
 		if err != nil {
 			return nil, err
 		}
@@ -933,17 +924,8 @@ func createActionUpdateOperationObject(lst []interface{}, api *zabbix.API) (item
 			return nil, err
 		}
 
-		t := m["type"].(string)
-		opeType := StringActionOperationTypeMap[t]
-
-		var msg *zabbix.ActionOperationMessage
-		var msgUserGroups zabbix.ActionOperationMessageUserGroups
-		var msgUsers zabbix.ActionOperationMessageUsers
-
-		if t == "notify_update_all_involved" {
-			opeType = zabbix.NotifyUpdateAllInvolved
-		}
-		msg, msgUserGroups, msgUsers, err = createActionOperationMessage(m["message"].([]interface{}), api, opeType)
+		opeType := StringActionOperationTypeMap[m["type"].(string)]
+		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), api, opeType)
 		if err != nil {
 			return nil, err
 		}
