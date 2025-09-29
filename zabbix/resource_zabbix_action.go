@@ -125,19 +125,18 @@ var ActionFilterConditionOperatorStringMap = map[zabbix.ActionFilterConditionOpe
 }
 
 var StringActionOperationTypeMap = map[string]zabbix.ActionOperationType{
-	"send_message":                 zabbix.SendMessage,
-	"remote_command":               zabbix.RemoteCommand,
-	"add_host":                     zabbix.AddHost,
-	"remove_host":                  zabbix.RemoveHost,
-	"add_to_host_group":            zabbix.AddToHostGroup,
-	"remove_from_host_group":       zabbix.RemoveFromHostGroup,
-	"link_to_template":             zabbix.LinkToTemplate,
-	"unlink_from_template":         zabbix.UnlinkFromTemplate,
-	"enable_host":                  zabbix.EnableHost,
-	"disable_host":                 zabbix.DisableHost,
-	"set_host_inventory_mode":      zabbix.SetHostInventoryMode,
-	"notify_recovery_all_involved": zabbix.NotifyRecoveryAllInvolved,
-	"notify_update_all_involved":   zabbix.NotifyUpdateAllInvolved,
+	"send_message":            zabbix.SendMessage,
+	"remote_command":          zabbix.RemoteCommand,
+	"add_host":                zabbix.AddHost,
+	"remove_host":             zabbix.RemoveHost,
+	"add_to_host_group":       zabbix.AddToHostGroup,
+	"remove_from_host_group":  zabbix.RemoveFromHostGroup,
+	"link_to_template":        zabbix.LinkToTemplate,
+	"unlink_from_template":    zabbix.UnlinkFromTemplate,
+	"enable_host":             zabbix.EnableHost,
+	"disable_host":            zabbix.DisableHost,
+	"set_host_inventory_mode": zabbix.SetHostInventoryMode,
+	// "notify_all_involved": ActionOperationType is different between recovery operation and update operation
 }
 
 var ActionOperationTypeStringMap = map[zabbix.ActionOperationType]string{
@@ -152,8 +151,8 @@ var ActionOperationTypeStringMap = map[zabbix.ActionOperationType]string{
 	zabbix.EnableHost:                "enable_host",
 	zabbix.DisableHost:               "disable_host",
 	zabbix.SetHostInventoryMode:      "set_host_inventory_mode",
-	zabbix.NotifyRecoveryAllInvolved: "notify_recovery_all_involved",
-	zabbix.NotifyUpdateAllInvolved:   "notify_update_all_involved",
+	zabbix.NotifyRecoveryAllInvolved: "notify_all_involved",
+	zabbix.NotifyUpdateAllInvolved:   "notify_all_involved",
 }
 
 var StringActionOperationCommandTypeMap = map[string]zabbix.ActionOperationCommandType{
@@ -662,7 +661,7 @@ func resourceZabbixAction() *schema.Resource {
 								[]string{
 									"send_message",
 									"remote_command",
-									"notify_recovery_all_involved",
+									"notify_all_involved",
 								},
 								false,
 							),
@@ -698,7 +697,7 @@ func resourceZabbixAction() *schema.Resource {
 								[]string{
 									"send_message",
 									"remote_command",
-									"notify_update_all_involved",
+									"notify_all_involved",
 								},
 								false,
 							),
@@ -894,7 +893,12 @@ func createActionRecoveryOperationObject(lst []interface{}, api *zabbix.API) (it
 			return nil, err
 		}
 
-		opeType := StringActionOperationTypeMap[m["type"].(string)]
+		var opeType zabbix.ActionOperationType
+		if t := m["type"].(string); t == "notify_all_involved" {
+			opeType = zabbix.NotifyRecoveryAllInvolved
+		} else {
+			opeType = StringActionOperationTypeMap[t]
+		}
 		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), opeType, api)
 		if err != nil {
 			return nil, err
@@ -924,7 +928,12 @@ func createActionUpdateOperationObject(lst []interface{}, api *zabbix.API) (item
 			return nil, err
 		}
 
-		opeType := StringActionOperationTypeMap[m["type"].(string)]
+		var opeType zabbix.ActionOperationType
+		if t := m["type"].(string); t == "notify_all_involved" {
+			opeType = zabbix.NotifyUpdateAllInvolved
+		} else {
+			opeType = StringActionOperationTypeMap[t]
+		}
 		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), opeType, api)
 		if err != nil {
 			return nil, err
