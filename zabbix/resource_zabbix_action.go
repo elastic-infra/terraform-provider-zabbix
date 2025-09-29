@@ -839,7 +839,7 @@ func createActionOperationObject(supportEscalation bool, lst []interface{}, api 
 		}
 
 		opeType := StringActionOperationTypeMap[m["type"].(string)]
-		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), api, opeType)
+		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), opeType, api)
 		if err != nil {
 			return nil, err
 		}
@@ -895,7 +895,7 @@ func createActionRecoveryOperationObject(lst []interface{}, api *zabbix.API) (it
 		}
 
 		opeType := StringActionOperationTypeMap[m["type"].(string)]
-		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), api, opeType)
+		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), opeType, api)
 		if err != nil {
 			return nil, err
 		}
@@ -925,7 +925,7 @@ func createActionUpdateOperationObject(lst []interface{}, api *zabbix.API) (item
 		}
 
 		opeType := StringActionOperationTypeMap[m["type"].(string)]
-		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), api, opeType)
+		msg, msgUserGroups, msgUsers, err := createActionOperationMessage(m["message"].([]interface{}), opeType, api)
 		if err != nil {
 			return nil, err
 		}
@@ -1071,7 +1071,7 @@ func createActionOperationHostGroups(lst []interface{}, api *zabbix.API) (
 	return
 }
 
-func createActionOperationMessage(lst []interface{}, api *zabbix.API, operationType zabbix.ActionOperationType) (
+func createActionOperationMessage(lst []interface{}, operationType zabbix.ActionOperationType, api *zabbix.API) (
 	msg *zabbix.ActionOperationMessage,
 	groups zabbix.ActionOperationMessageUserGroups,
 	users zabbix.ActionOperationMessageUsers,
