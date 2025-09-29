@@ -60,8 +60,7 @@ func TestAccZabbixAction_Update(t *testing.T) {
 					testAccCheckZabbixActionExists("zabbix_action.zabbix", &action),
 					resource.TestCheckResourceAttr("zabbix_action.zabbix", "name", updatedActionName),
 					resource.TestCheckResourceAttr("zabbix_action.zabbix", "enabled", "false"),
-					resource.TestCheckResourceAttr("zabbix_action.zabbix", "operation.0.message.0.subject", "Updated Alert"),
-					resource.TestCheckResourceAttr("zabbix_action.zabbix", "operation.0.message.0.message", "Updated message body"),
+					resource.TestCheckResourceAttr("zabbix_action.zabbix", "operation.0.message.0.default_message", "true"),
 				),
 			},
 		},
@@ -135,9 +134,7 @@ func testAccZabbixActionConfigUpdated(actionName string) string {
 				type = "send_message"
 
 				message {
-					default_message = false
-					subject         = "Updated Alert"
-					message         = "Updated message body"
+					default_message = true
 
 					target {
 						type  = "user_group"
