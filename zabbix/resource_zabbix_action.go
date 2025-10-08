@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/claranet/go-zabbix-api"
@@ -750,7 +751,8 @@ func createActionObject(d *schema.ResourceData, api *zabbix.API) (*zabbix.Action
 		period = d.Get("default_step_duration").(string)
 	}
 
-	conditions, err := createActionConditionObject(d.Get("condition").([]interface{}), api)
+	calculation := d.Get("calculation").(string)
+	conditions, err := createActionConditionObject(d.Get("condition").([]interface{}), calculation, api)
 	if err != nil {
 		return nil, err
 	}
@@ -789,8 +791,11 @@ func createActionObject(d *schema.ResourceData, api *zabbix.API) (*zabbix.Action
 	return &action, nil
 }
 
-func createActionConditionObject(lst []interface{}, api *zabbix.API) (items zabbix.ActionFilterConditions, err error) {
-	for _, v := range lst {
+func createActionConditionObject(lst []interface{}, calculation string, api *zabbix.API) (items zabbix.ActionFilterConditions, err error) {
+	// FormulaID is required when calculation is "custom"
+	needFormulaID := calculation == "custom"
+
+	for i, v := range lst {
 		m := v.(map[string]interface{})
 		conditionType := m["type"].(string)
 		value := m["value"].(string)
@@ -810,11 +815,18 @@ func createActionConditionObject(lst []interface{}, api *zabbix.API) (items zabb
 			value = res[0].GroupID
 		}
 
+		// Generate FormulaID (A, B, C, ...) when custom calculation is used
+		formulaID := ""
+		if needFormulaID {
+			formulaID = string(rune('A' + i))
+		}
+
 		item := zabbix.ActionFilterCondition{
 			ConditionID:   m["condition_id"].(string),
 			ConditionType: StringActionConditionTypeMap[conditionType],
 			Value:         value,
 			Value2:        m["value2"].(string),
+			FormulaID:     formulaID,
 			Operator:      StringActionFilterConditionOperatorMap[m["operator"].(string)],
 		}
 		items = append(items, item)
@@ -1278,7 +1290,14 @@ func resourceZabbixActionRead(d *schema.ResourceData, meta interface{}) error {
 }
 
 func readActionConditions(cds zabbix.ActionFilterConditions, api *zabbix.API) (lst []interface{}, err error) {
-	for _, v := range cds {
+	// Sort conditions by FormulaID to maintain consistent order with Terraform configuration
+	sortedCds := make(zabbix.ActionFilterConditions, len(cds))
+	copy(sortedCds, cds)
+	sort.Slice(sortedCds, func(i, j int) bool {
+		return sortedCds[i].FormulaID < sortedCds[j].FormulaID
+	})
+
+	for _, v := range sortedCds {
 		m := map[string]interface{}{}
 		m["condition_id"] = v.ConditionID
 		conditionType := ActionConditionTypeStringMap[v.ConditionType]
