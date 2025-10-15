@@ -27,13 +27,13 @@ resource "zabbix_user" "demo_user" {
   refresh    = "30s"
   theme      = "default"
   type       = 1
-  
+
   role_ids = ["3"]
-  
+
   user_groups {
     usrgrpid = "7"
   }
-  
+
   user_medias {
     mediatypeid = "1"
     sendto      = ["user@example.com"]
@@ -91,3 +91,4 @@ Users can be imported using their user ID:
 ```
 $ terraform import zabbix_user.demo_user 123
 ```
+

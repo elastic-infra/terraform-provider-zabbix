@@ -70,3 +70,4 @@ The following arguments are supported (at least one is required):
   * `active` - Media status.
   * `severity` - Trigger severities.
   * `period` - Time period for notifications.
+
