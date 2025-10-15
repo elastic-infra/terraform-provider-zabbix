@@ -140,16 +140,11 @@ func resourceZabbixUser() *schema.Resource {
 							Default:     "1-7,00:00-24:00",
 							Description: "Time when the notifications can be sent as a time period.",
 						},
-					},
 				},
 			},
-			"user_id": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "ID of the user.",
-			},
 		},
-	}
+	},
+}
 }
 
 func getUserGroups(d *schema.ResourceData, api *zabbix.API) (zabbix.UserGroups, error) {
@@ -270,7 +265,6 @@ func resourceZabbixUserCreate(d *schema.ResourceData, meta interface{}) error {
 	userID := users[0].UserID
 	log.Printf("[DEBUG] Created user, id is %s", userID)
 
-	d.Set("user_id", userID)
 	d.SetId(userID)
 
 	return resourceZabbixUserRead(d, meta)
@@ -309,7 +303,6 @@ func resourceZabbixUserRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("rows_per_page", user.RowsPerPage)
 	d.Set("timezone", user.Timezone)
 	d.Set("role_id", user.RoleID)
-	d.Set("user_id", user.UserID)
 
 	// Set medias
 	mediasList := make([]interface{}, len(user.Medias))
