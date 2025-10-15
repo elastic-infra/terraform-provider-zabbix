@@ -540,7 +540,7 @@ func resourceZabbixAction() *schema.Resource {
 						},
 						"formula_id": {
 							Type:     schema.TypeString,
-							Computed: true,
+							Optional: true,
 						},
 						"operator": {
 							Type:     schema.TypeString,
@@ -815,6 +815,7 @@ func createActionConditionObject(lst []interface{}, api *zabbix.API) (items zabb
 			ConditionType: StringActionConditionTypeMap[conditionType],
 			Value:         value,
 			Value2:        m["value2"].(string),
+			FormulaID:     m["formula_id"].(string),
 			Operator:      StringActionFilterConditionOperatorMap[m["operator"].(string)],
 		}
 		items = append(items, item)
