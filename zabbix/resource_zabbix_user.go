@@ -140,11 +140,11 @@ func resourceZabbixUser() *schema.Resource {
 							Default:     "1-7,00:00-24:00",
 							Description: "Time when the notifications can be sent as a time period.",
 						},
+					},
 				},
 			},
 		},
-	},
-}
+	}
 }
 
 func getUserGroups(d *schema.ResourceData, api *zabbix.API) (zabbix.UserGroups, error) {
@@ -199,35 +199,46 @@ func getUserGroups(d *schema.ResourceData, api *zabbix.API) (zabbix.UserGroups, 
 	return userGroups, nil
 }
 
+func getMedias(d *schema.ResourceData) (zabbix.Medias, error) {
+	mediasData, ok := d.GetOk("medias")
+	if !ok {
+		return zabbix.Medias{}, nil
+	}
+
+	mediasList := mediasData.([]interface{})
+	medias := make(zabbix.Medias, len(mediasList))
+
+	for i, mediaData := range mediasList {
+		mediaMap := mediaData.(map[string]interface{})
+		media := zabbix.Media{
+			MediaTypeID: mediaMap["mediatypeid"].(string),
+			Active:      zabbix.MediaStatus(map[bool]int{true: 0, false: 1}[mediaMap["active"].(bool)]),
+			Severity:    mediaMap["severity"].(int),
+			Period:      mediaMap["period"].(string),
+		}
+
+		// Handle sendto list
+		if sendtoList, ok := mediaMap["sendto"].([]interface{}); ok {
+			sendToStrings := make([]string, len(sendtoList))
+			for j, sendto := range sendtoList {
+				sendToStrings[j] = sendto.(string)
+			}
+			media.SendTo = sendToStrings
+		}
+
+		medias[i] = media
+	}
+
+	return medias, nil
+}
+
 func resourceZabbixUserCreate(d *schema.ResourceData, meta interface{}) error {
 	api := meta.(*zabbix.API)
 
 	// Handle medias
-	var medias zabbix.Medias
-	if mediasData, ok := d.GetOk("medias"); ok {
-		mediasList := mediasData.([]interface{})
-		medias = make(zabbix.Medias, len(mediasList))
-
-		for i, mediaData := range mediasList {
-			mediaMap := mediaData.(map[string]interface{})
-			media := zabbix.Media{
-				MediaTypeID: mediaMap["mediatypeid"].(string),
-				Active:      zabbix.MediaStatus(map[bool]int{true: 0, false: 1}[mediaMap["active"].(bool)]),
-				Severity:    mediaMap["severity"].(int),
-				Period:      mediaMap["period"].(string),
-			}
-
-			// Handle sendto list
-			if sendtoList, ok := mediaMap["sendto"].([]interface{}); ok {
-				sendToStrings := make([]string, len(sendtoList))
-				for j, sendto := range sendtoList {
-					sendToStrings[j] = sendto.(string)
-				}
-				media.SendTo = sendToStrings
-			}
-
-			medias[i] = media
-		}
+	medias, err := getMedias(d)
+	if err != nil {
+		return fmt.Errorf("error getting medias: %v", err)
 	}
 
 	// Handle user groups
@@ -417,34 +428,11 @@ func resourceZabbixUserUpdate(d *schema.ResourceData, meta interface{}) error {
 
 	// Handle medias update
 	if d.HasChange("medias") {
-		if mediasData, ok := d.GetOk("medias"); ok {
-			mediasList := mediasData.([]interface{})
-			user.Medias = make(zabbix.Medias, len(mediasList))
-
-			for i, mediaData := range mediasList {
-				mediaMap := mediaData.(map[string]interface{})
-				media := zabbix.Media{
-					MediaTypeID: mediaMap["mediatypeid"].(string),
-					Active:      zabbix.MediaStatus(map[bool]int{true: 0, false: 1}[mediaMap["active"].(bool)]),
-					Severity:    mediaMap["severity"].(int),
-					Period:      mediaMap["period"].(string),
-				}
-
-				// Handle sendto list
-				if sendtoList, ok := mediaMap["sendto"].([]interface{}); ok {
-					sendToStrings := make([]string, len(sendtoList))
-					for j, sendto := range sendtoList {
-						sendToStrings[j] = sendto.(string)
-					}
-					media.SendTo = sendToStrings
-				}
-
-				user.Medias[i] = media
-			}
-		} else {
-			// Clear medias if not specified
-			user.Medias = zabbix.Medias{}
+		medias, err := getMedias(d)
+		if err != nil {
+			return fmt.Errorf("error getting medias: %v", err)
 		}
+		user.Medias = medias
 	}
 
 	// Handle user groups update
