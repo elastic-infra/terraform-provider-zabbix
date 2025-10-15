@@ -123,11 +123,9 @@ func resourceZabbixUser() *schema.Resource {
 							},
 						},
 						"active": {
-							Type:         schema.TypeInt,
-							Optional:     true,
-							Default:      0,
-							Description:  "Whether the media is enabled. 0 - enabled; 1 - disabled.",
-							ValidateFunc: validation.IntInSlice([]int{0, 1}),
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  true,
 						},
 						"severity": {
 							Type:         schema.TypeInt,
@@ -209,61 +207,17 @@ func getUserGroups(d *schema.ResourceData, api *zabbix.API) (zabbix.UserGroups, 
 func resourceZabbixUserCreate(d *schema.ResourceData, meta interface{}) error {
 	api := meta.(*zabbix.API)
 
-	// Prepare user object
-	user := zabbix.User{
-		Username: d.Get("username").(string),
-		RoleID:   d.Get("role_id").(string),
-	}
-
-	// Set optional string fields
-	if name, ok := d.GetOk("name"); ok {
-		user.Name = name.(string)
-	}
-	if surname, ok := d.GetOk("surname"); ok {
-		user.Surname = surname.(string)
-	}
-
-	// Password is required for user creation
-	user.Password = d.Get("password").(string)
-	if url, ok := d.GetOk("url"); ok {
-		user.Url = url.(string)
-	}
-	if autologout, ok := d.GetOk("autologout"); ok {
-		user.Autologout = autologout.(string)
-	}
-	if lang, ok := d.GetOk("lang"); ok {
-		user.Lang = lang.(string)
-	}
-	if refresh, ok := d.GetOk("refresh"); ok {
-		user.Refresh = refresh.(string)
-	}
-	if theme, ok := d.GetOk("theme"); ok {
-		user.Theme = theme.(string)
-	}
-	if timezone, ok := d.GetOk("timezone"); ok {
-		user.Timezone = timezone.(string)
-	}
-
-	// Set autologin
-	if autologin := d.Get("autologin").(bool); autologin {
-		user.Autologin = 1
-	} else {
-		user.Autologin = 0
-	}
-
-	// Set rows_per_page
-	user.RowsPerPage = d.Get("rows_per_page").(int)
-
 	// Handle medias
+	var medias zabbix.Medias
 	if mediasData, ok := d.GetOk("medias"); ok {
 		mediasList := mediasData.([]interface{})
-		user.Medias = make(zabbix.Medias, len(mediasList))
+		medias = make(zabbix.Medias, len(mediasList))
 
 		for i, mediaData := range mediasList {
 			mediaMap := mediaData.(map[string]interface{})
 			media := zabbix.Media{
 				MediaTypeID: mediaMap["mediatypeid"].(string),
-				Active:      zabbix.MediaStatus(mediaMap["active"].(int)),
+				Active:      zabbix.MediaStatus(map[bool]int{true: 0, false: 1}[mediaMap["active"].(bool)]),
 				Severity:    mediaMap["severity"].(int),
 				Period:      mediaMap["period"].(string),
 			}
@@ -277,7 +231,7 @@ func resourceZabbixUserCreate(d *schema.ResourceData, meta interface{}) error {
 				media.SendTo = sendToStrings
 			}
 
-			user.Medias[i] = media
+			medias[i] = media
 		}
 	}
 
@@ -286,7 +240,25 @@ func resourceZabbixUserCreate(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return fmt.Errorf("error getting user groups: %v", err)
 	}
-	user.UsrGrps = userGroups
+
+	// Prepare user object
+	user := zabbix.User{
+		Username:    d.Get("username").(string),
+		RoleID:      d.Get("role_id").(string),
+		Password:    d.Get("password").(string),
+		Name:        d.Get("name").(string),
+		Surname:     d.Get("surname").(string),
+		Url:         d.Get("url").(string),
+		Autologout:  d.Get("autologout").(string),
+		Lang:        d.Get("lang").(string),
+		Refresh:     d.Get("refresh").(string),
+		Theme:       d.Get("theme").(string),
+		Timezone:    d.Get("timezone").(string),
+		Autologin:   map[bool]int{true: 1, false: 0}[d.Get("autologin").(bool)],
+		RowsPerPage: d.Get("rows_per_page").(int),
+		Medias:      medias,
+		UsrGrps:     userGroups,
+	}
 
 	users := zabbix.Users{user}
 
@@ -311,7 +283,7 @@ func resourceZabbixUserRead(d *schema.ResourceData, meta interface{}) error {
 		"userids":       []string{d.Id()},
 		"output":        "extend",
 		"selectMedias":  "extend",
-		"selectUsrgrps": "extend",
+		"selectUsrgrps": []string{"name"},
 	})
 
 	if err != nil {
@@ -360,7 +332,7 @@ func resourceZabbixUserRead(d *schema.ResourceData, meta interface{}) error {
 		mediaMap := map[string]interface{}{
 			"mediatypeid": media.MediaTypeID,
 			"sendto":      sendTo,
-			"active":      int(media.Active),
+			"active":      int(media.Active) == 0,
 			"severity":    media.Severity,
 			"period":      media.Period,
 		}
@@ -460,7 +432,7 @@ func resourceZabbixUserUpdate(d *schema.ResourceData, meta interface{}) error {
 				mediaMap := mediaData.(map[string]interface{})
 				media := zabbix.Media{
 					MediaTypeID: mediaMap["mediatypeid"].(string),
-					Active:      zabbix.MediaStatus(mediaMap["active"].(int)),
+					Active:      zabbix.MediaStatus(map[bool]int{true: 0, false: 1}[mediaMap["active"].(bool)]),
 					Severity:    mediaMap["severity"].(int),
 					Period:      mediaMap["period"].(string),
 				}
