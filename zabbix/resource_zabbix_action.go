@@ -1250,7 +1250,7 @@ func resourceZabbixActionRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("calculation", ActionEvaluationTypeStringMap[action.Filter.EvaluationType])
 	d.Set("formula", action.Filter.Formula)
 
-	conditions, err := readActionConditions(action.Filter.Conditions, api)
+	conditions, err := readActionConditions(action.Filter.Conditions, action.Filter.EvaluationType, api)
 	if err != nil {
 		return err
 	}
@@ -1278,7 +1278,7 @@ func resourceZabbixActionRead(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func readActionConditions(cds zabbix.ActionFilterConditions, api *zabbix.API) (lst []interface{}, err error) {
+func readActionConditions(cds zabbix.ActionFilterConditions, evaluationType zabbix.ActionEvaluationType, api *zabbix.API) (lst []interface{}, err error) {
 	for _, v := range cds {
 		m := map[string]interface{}{}
 		m["condition_id"] = v.ConditionID
@@ -1297,7 +1297,10 @@ func readActionConditions(cds zabbix.ActionFilterConditions, api *zabbix.API) (l
 
 		m["value"] = value
 		m["value2"] = v.Value2
-		m["formula_id"] = v.FormulaID
+		// Only save formula_id when calculation is "custom"
+		if evaluationType == zabbix.Custom {
+			m["formula_id"] = v.FormulaID
+		}
 		m["operator"] = ActionFilterConditionOperatorStringMap[v.Operator]
 
 		lst = append(lst, m)
