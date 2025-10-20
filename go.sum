@@ -83,8 +83,8 @@ github.com/cyphar/filepath-securejoin v0.2.4/go.mod h1:aPGpWjXOXUn2NCNjFvBE6aRxG
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/elastic-infra/go-zabbix-api v1.4.0 h1:Ikily6+JgcN7MU8IA1gbKSzBDyCeGx2pTnlIACT0GFA=
-github.com/elastic-infra/go-zabbix-api v1.4.0/go.mod h1:ZK0I4NKOPCumEza6i8R3iHkAk79munoWIqCxCvpnI/4=
+github.com/elastic-infra/go-zabbix-api v1.5.0 h1:7GSMTXOkdXuej/Xg3CaUJMRzotdOw838ZguEErIx4H8=
+github.com/elastic-infra/go-zabbix-api v1.5.0/go.mod h1:ZK0I4NKOPCumEza6i8R3iHkAk79munoWIqCxCvpnI/4=
 github.com/emirpasic/gods v1.12.0/go.mod h1:YfzfFFoVP/catgzJb4IKIqXjX78Ha8FMSDh3ymbK86o=
 github.com/emirpasic/gods v1.18.1 h1:FXtiHYKDGKCW2KzwZKx0iC0PQmdlorYgdFG9jPXJ1Bc=
 github.com/emirpasic/gods v1.18.1/go.mod h1:8tpGGwCnJ5H4r6BWwaV6OrWmMoPhUl5jm/FMNAnJvWQ=
