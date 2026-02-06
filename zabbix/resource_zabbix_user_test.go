@@ -176,7 +176,7 @@ resource "zabbix_user" "test" {
 	medias {
 		mediatypeid = "1"
 		sendto      = ["test@example.com"]
-		active      = 0
+		active      = true
 		severity    = 63
 		period      = "1-7,00:00-24:00"
 	}
@@ -264,7 +264,7 @@ func TestAccZabbixUser_MediaUpdate(t *testing.T) {
 					testAccCheckZabbixUserExists("zabbix_user.test", &user),
 					resource.TestCheckResourceAttr("zabbix_user.test", "medias.#", "1"),
 					resource.TestCheckResourceAttr("zabbix_user.test", "medias.0.severity", "60"),
-					resource.TestCheckResourceAttr("zabbix_user.test", "medias.0.active", "1"),
+					resource.TestCheckResourceAttr("zabbix_user.test", "medias.0.active", "false"),
 				),
 			},
 		},
@@ -283,7 +283,7 @@ resource "zabbix_user" "test" {
 	medias {
 		mediatypeid = "1"
 		sendto      = ["test@example.com"]
-		active      = 0
+		active      = true
 		severity    = 63
 		period      = "1-7,00:00-24:00"
 	}
@@ -291,7 +291,7 @@ resource "zabbix_user" "test" {
 	medias {
 		mediatypeid = "3"
 		sendto      = ["#slack-channel"]
-		active      = 0
+		active      = true
 		severity    = 60
 		period      = "1-7,00:00-24:00"
 	}
@@ -325,7 +325,7 @@ resource "zabbix_user" "test" {
 	medias {
 		mediatypeid = "1"
 		sendto      = ["test@example.com"]
-		active      = 1
+		active      = false
 		severity    = 60
 		period      = "1-5,09:00-18:00"
 	}

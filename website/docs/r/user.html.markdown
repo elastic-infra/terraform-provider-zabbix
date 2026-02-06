@@ -37,7 +37,7 @@ resource "zabbix_user" "demo_user" {
   user_medias {
     mediatypeid = "1"
     sendto      = ["user@example.com"]
-    active      = 0
+    active      = true
     severity    = 63
     period      = "1-7,00:00-24:00"
   }
@@ -65,7 +65,7 @@ The following arguments are supported:
 * `user_medias` - (Optional, Multiple) List of user media (notification methods).
   * `mediatypeid` - (Required) Media type ID.
   * `sendto` - (Required) List of addresses, phone numbers or other identifiers where notifications will be sent.
-  * `active` - (Optional) Whether the media is enabled. Can be `0` (enabled, default) or `1` (disabled).
+  * `active` - (Optional) Whether the media is enabled. Can be `true` (enabled, default) or `false` (disabled).
   * `severity` - (Optional) Trigger severities to send notifications about. Default is `63` (all severities).
   * `period` - (Optional) Time when the notifications can be sent as a time period or user macro. Default is `1-7,00:00-24:00`.
 
