@@ -73,7 +73,7 @@ The following arguments are supported:
 
 In addition to all arguments above, the following attributes are exported:
 
-* `user_id` - The zabbix user ID.
+* `id` - The zabbix user ID.
 * `user_groups`
   * `usrgrpid` - User group ID.
 * `user_medias`

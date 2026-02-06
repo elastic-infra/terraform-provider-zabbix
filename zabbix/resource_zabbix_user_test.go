@@ -27,7 +27,7 @@ func TestAccZabbixUser_Basic(t *testing.T) {
 					resource.TestCheckResourceAttr("zabbix_user.test", "name", "Test"),
 					resource.TestCheckResourceAttr("zabbix_user.test", "surname", "User"),
 					resource.TestCheckResourceAttr("zabbix_user.test", "role_id", "1"),
-					resource.TestCheckResourceAttrSet("zabbix_user.test", "user_id"),
+					resource.TestCheckResourceAttrSet("zabbix_user.test", "id"),
 				),
 			},
 		},

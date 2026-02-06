@@ -45,11 +45,11 @@ output "username" {
 The following arguments are supported (at least one is required):
 
 * `username` - (Optional) User login name to search for.
-* `user_id` - (Optional) User ID to search for.
+* `id` - (Optional) User ID to search for.
 
 ## Attributes
 
-* `user_id` - The zabbix user ID.
+* `id` - The zabbix user ID.
 * `username` - User login name.
 * `name` - User first name.
 * `surname` - User last name.
