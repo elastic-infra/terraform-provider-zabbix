@@ -19,22 +19,17 @@ resource "zabbix_user" "demo_user" {
   username   = "demouser"
   name       = "Demo"
   surname    = "User"
-  passwd     = "securepassword"
-  url        = "https://example.com"
-  autologin  = 0
+  password   = "securepassword"
+  role_id    = "3"
+  autologin  = false
   autologout = "15m"
   lang       = "en_US"
   refresh    = "30s"
   theme      = "default"
-  type       = 1
 
-  role_ids = ["3"]
+  user_groups = ["Zabbix administrators"]
 
-  user_groups {
-    usrgrpid = "7"
-  }
-
-  user_medias {
+  medias {
     mediatypeid = "1"
     sendto      = ["user@example.com"]
     active      = true
@@ -49,40 +44,31 @@ resource "zabbix_user" "demo_user" {
 The following arguments are supported:
 
 * `username` - (Required) User login name.
+* `password` - (Required) User password.
+* `role_id` - (Required) ID of the user role.
 * `name` - (Optional) User first name.
 * `surname` - (Optional) User last name.
-* `passwd` - (Optional) User password. Required when creating a new user.
-* `url` - (Optional) URL after successful login.
-* `autologin` - (Optional) Whether to enable auto-login. Can be `0` (default, disabled) or `1` (enabled).
-* `autologout` - (Optional) User session life time in seconds. If set to 0, the session will never expire. Default is `15m`.
-* `lang` - (Optional) Language code of the user's locale. Default is `en_US`.
-* `refresh` - (Optional) Automatic refresh period in seconds. Default is `30s`.
-* `theme` - (Optional) User's theme. Can be `default`, `blue-theme`, `dark-theme`.
-* `type` - (Optional) Type of the user. Can be `1` (Zabbix user, default), `2` (Zabbix admin), `3` (Zabbix super admin).
-* `role_ids` - (Optional) List of role IDs assigned to the user.
-* `user_groups` - (Optional, Multiple) List of user groups the user belongs to.
-  * `usrgrpid` - (Required) User group ID.
-* `user_medias` - (Optional, Multiple) List of user media (notification methods).
-  * `mediatypeid` - (Required) Media type ID.
+* `url` - (Optional) URL of the page to redirect the user to after logging in.
+* `autologin` - (Optional) Whether to enable auto-login. Default is `false`.
+* `autologout` - (Optional) User session life time. If set to `"0"`, the session will never expire. Default is `"0"`.
+* `lang` - (Optional) Language code of the user's language. Default is `"default"`.
+* `refresh` - (Optional) Automatic refresh period. Default is `"30s"`.
+* `theme` - (Optional) User's theme. Can be `"default"`, `"blue-theme"`, `"dark-theme"`. Default is `"default"`.
+* `rows_per_page` - (Optional) Amount of object rows to show per page. Must be between 1 and 999999. Default is `50`.
+* `timezone` - (Optional) User's timezone. Default is `"default"`.
+* `user_groups` - (Optional) Set of user group names to add the user to.
+* `medias` - (Optional) List of user media (notification methods). Each `medias` block supports:
+  * `mediatypeid` - (Required) ID of the media type used by the media.
   * `sendto` - (Required) List of addresses, phone numbers or other identifiers where notifications will be sent.
-  * `active` - (Optional) Whether the media is enabled. Can be `true` (enabled, default) or `false` (disabled).
-  * `severity` - (Optional) Trigger severities to send notifications about. Default is `63` (all severities).
-  * `period` - (Optional) Time when the notifications can be sent as a time period or user macro. Default is `1-7,00:00-24:00`.
+  * `active` - (Optional) Whether the media is enabled. Default is `true`.
+  * `severity` - (Optional) Trigger severities to send notifications about as a bitmask. Must be between 1 and 63. Default is `63` (all severities).
+  * `period` - (Optional) Time when the notifications can be sent as a time period or user macro. Default is `"1-7,00:00-24:00"`.
 
 ## Attribute Reference
 
 In addition to all arguments above, the following attributes are exported:
 
 * `id` - The zabbix user ID.
-* `user_groups`
-  * `usrgrpid` - User group ID.
-* `user_medias`
-  * `mediaid` - Media ID.
-  * `mediatypeid` - Media type ID.
-  * `sendto` - List of addresses where notifications are sent.
-  * `active` - Media status.
-  * `severity` - Trigger severities.
-  * `period` - Time period for notifications.
 
 ## Import
 
@@ -92,3 +78,4 @@ Users can be imported using their user ID:
 $ terraform import zabbix_user.demo_user 123
 ```
 
+~> **Note:** The `password` attribute cannot be read from the Zabbix API. After importing, the first `terraform plan` will show a diff for `password`. Running `terraform apply` will resolve this.
