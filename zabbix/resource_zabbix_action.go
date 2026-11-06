@@ -489,7 +489,7 @@ func resourceZabbixAction() *schema.Resource {
 				Optional: true,
 			},
 			"condition": {
-				Type:     schema.TypeList,
+				Type:     schema.TypeSet,
 				Optional: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -750,7 +750,7 @@ func createActionObject(d *schema.ResourceData, api *zabbix.API) (*zabbix.Action
 		period = d.Get("default_step_duration").(string)
 	}
 
-	conditions, err := createActionConditionObject(d.Get("condition").([]interface{}), api)
+	conditions, err := createActionConditionObject(d.Get("condition").(*schema.Set).List(), api)
 	if err != nil {
 		return nil, err
 	}
